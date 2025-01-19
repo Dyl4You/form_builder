@@ -1,0 +1,22 @@
+{
+    "name": "pdf-docx-to-formio-parser",
+    "version": "1.0.0",
+    "description": "An application to upload PDFs and DOCXs, parse them into Form.io JSON with dictionary management.",
+    "main": "server.js",
+    "scripts": {
+      "start": "node src/server.js"
+    },
+    "author": "Your Name",
+    "license": "MIT",
+    "dependencies": {
+      "express": "^4.21.2",
+      "express-validator": "^6.14.3",
+      "lodash": "^4.17.21",
+      "mammoth": "^1.9.0",
+      "multer": "^1.4.5-lts.1",
+      "pdf-parse": "^1.1.1",
+      "sqlite3": "^5.1.2",
+      "uuid": "^9.0.1"
+    }
+  }
+  

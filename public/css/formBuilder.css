@@ -1,0 +1,463 @@
+/* ============================
+   public/css/formBuilder.css
+   ============================ */
+
+/* Global Page & Font */
+html, body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background-color: #2e2e2e; 
+    color: #e3e3e3;
+}
+  
+/* Container for main form area */
+.container {
+    padding: 20px;
+    max-width: 900px;
+    margin: 50px auto;
+    background-color: #424242;
+    border-radius: 10px;
+}
+  
+.wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+  
+h1, h3 {
+    color: #e3e3e3;
+    margin-bottom: 15px;
+}
+  
+/* "Save Form" button at the top */
+#saveFormBtn {
+    font-size: 14px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    background-color: #616161;
+    color: #e3e3e3;
+    border: none;
+    cursor: pointer;
+    margin-bottom: 15px;
+}
+#saveFormBtn:hover {
+    background-color: #757575;
+}
+  
+label {
+    display: block;
+    margin-top: 15px;
+    font-weight: bold;
+}
+  
+/* Basic input, select, and button styles 
+   with line-height for vertical placeholder alignment */
+select, input, button, textarea {
+    margin-top: 5px;
+    padding: 10px;
+    border: 1px solid #555;
+    border-radius: 5px;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: #333;
+    color: #e3e3e3;
+  
+    /* Force a stable height + line-height: */
+    height: 2.5rem;   
+    line-height: 2.5rem;
+}
+button {
+    font-size: 14px;
+    cursor: pointer;
+    
+    /* Force a stable height & center the text vertically: */
+    height: 2.5rem;
+    line-height: 2.5rem;
+    
+    /* Or use inline-flex for perfect centering if needed: */
+    display: inline-flex;
+    align-items: center;        /* vertical centering */
+    justify-content: center;    /* horizontal centering of text */
+    
+    /* The rest of your button styling: */
+    padding: 0 1rem;            /* or something narrower since we have a fixed height */
+    border: 1px solid #555;
+    border-radius: 5px;
+    background-color: #333;
+    color: #e3e3e3;
+    transition: background-color 0.2s ease;
+    border: none;               /* if you prefer none or keep #555 if you like */
+}
+button:hover {
+    background-color: #757575;
+}
+  
+/* Placeholder color & vertical centering */
+::placeholder,
+::-webkit-input-placeholder {
+    color: #b2b2b2;
+    opacity: 1;
+}
+  
+/* Pre blocks for JSON, etc. */
+pre {
+    background: #333;
+    padding: 15px;
+    color: #e3e3e3;
+    border-radius: 5px;
+    overflow-x: auto;
+}
+  
+/* Card container for picking component types */
+.card-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+.card {
+    /* fixed width to keep them aligned, e.g. 120px */
+    flex: 0 0 120px;
+    background-color: #333;
+    padding: 8px;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    border: 2px solid transparent;
+    transition: background-color 0.2s ease, border 0.2s ease;
+}
+.card:hover {
+    background-color: #616161;
+}
+.card.selected {
+    background-color: #616161;
+}
+  
+/* The main "component list" items after you've added them */
+#componentList .component-card {
+    background-color: #616161; 
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 15px;     
+    justify-content: flex-start;
+    box-shadow: none; 
+}
+#componentList .component-card:hover {
+    background-color: #616161;
+}
+.component-details {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    white-space: nowrap;  
+    font-size: 14px;
+}
+  
+/* Hide JSON preview by default */
+#formPreview,
+h3:contains("Form JSON Preview") { 
+    display: none;
+}
+#jsonPreviewContainer {
+    display: none;
+}
+  
+/* Fieldset container for "root" or sub-fieldsets */
+.fieldset-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+.fieldset-card {
+    background-color: #333;
+    padding: 8px;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    border: 2px solid transparent;
+    transition: background-color 0.2s ease, border 0.2s ease;
+}
+.fieldset-card:hover {
+    background-color: #616161;
+}
+.fieldset-card.selected {
+    background-color: #616161;
+    border: 2px solid transparent;
+}
+  
+/* Notification (top-right) */
+.notification {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    background: #424242;
+    color: #e3e3e3;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    opacity: 0;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    transform: translateY(-20px);
+    z-index: 1000;
+}
+.notification.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+  
+/* ===========================
+   Modals: consistent spacing
+   =========================== */
+/* Primary modal */
+.modal {
+    display: none;
+    width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+    background: #424242;
+    border-radius: 16px;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000; /* Base z-index for modals */
+    padding: 16px;
+}
+  
+/* Primary overlay */
+.overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 900; /* Slightly below the modal */
+}
+  
+/* Nested modal (e.g. for column editing or subcomponent editing) */
+/* Nested modals (within a modal) */
+.modal.nested {
+    z-index: 1100;
+}
+.overlay.nested {
+    z-index: 1090;
+}
+  
+/* Extra nested (super-nested) */
+.super-top {
+    z-index: 2000 !important;
+  }
+  
+  /* Higher z-index for nested overlays when opening additional modals */
+  .super-top ~ .overlay {
+    z-index: 1999 !important;
+  }
+  
+  /* For further nested modals, use additional classes if needed */
+  .super-nested2 {
+    z-index: 3000 !important;
+  }
+  .super-nested3 {
+    z-index: 4000 !important;
+  }
+  
+  /* Ensure overlays for nested modals also have increased z-index */
+  .super-nested2 ~ .overlay {
+    z-index: 2999 !important;
+  }
+  .super-nested3 ~ .overlay {
+    z-index: 3999 !important;
+  }
+  
+  
+
+  
+.modal-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+}
+  
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0;  /* Reset default margin */
+}
+  
+.modal-header h3 {
+    margin: 0;
+    font-size: 20px;
+    color: #e3e3e3;
+}
+  
+/* Close (X) button */
+.close-btn {
+    font-size: 20px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    color: #e3e3e3;
+}
+  
+.modal-body {
+    margin: 0;
+    padding: 20px 20px 10px;
+}
+.modal-buttons {
+    display: flex;
+    align-items: center;  /* ensures vertical centering of children */
+    gap: 16px;
+    margin-top: 10px;
+    justify-content: flex-start;
+}
+  
+.modal-buttons button {
+    font-size: 14px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    background-color: #616161;
+    color: #e3e3e3;
+    border: none;
+    cursor: pointer;
+}
+  
+.modal-buttons button:hover {
+    background-color: #757575;
+}
+  
+/* The "component options" modal specifically */
+#componentOptionsModal {
+    box-shadow: none;
+    border-radius: 16px;
+}
+#componentOptionsModal h3 {
+    margin-top: 0;
+    font-size: 20px;
+    color: #e3e3e3;
+}
+#componentOptionDetails {
+    font-size: 14px;
+    color: #b0b0b0;
+    font-style: italic;
+    padding: 8px;
+    background: #2c2c2c;
+    border-radius: 4px;
+    box-shadow: none; 
+}
+  
+.tag-bubble {
+    background-color: #616161;
+    color: #e3e3e3;
+    padding: 6px 10px;          /* Enough space for comfortable text */
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.tag-bubble:hover {
+    background-color: #757575;
+}
+  
+.tag-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;                    /* Space between tags and input */
+    padding: 8px;
+    margin-top: 5px;               /* Inner padding around the edges */
+    border: 1px solid #555;
+    border-radius: 8px;
+    background-color: #333;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;      /* So padding/border don’t overflow */
+}
+  
+/* The input for creating new tags */
+.tag-container input {
+    flex: 1 1 auto;             /* Fill remaining space on the current line */
+    min-width: 120px;           /* Enough room for placeholder text */
+    border: none;
+    background: transparent;
+    color: #e3e3e3;
+    outline: none;
+    margin: 0;
+    padding: 6px 0;             /* Vertical padding to match tag-bubble height */
+    font-size: 14px;
+    line-height: 1.5;
+}
+  
+/* Placeholder styling, if you want a consistent placeholder color */
+.tag-container input::placeholder {
+    color: #b2b2b2; 
+    opacity: 1; /* ensures the placeholder color is actually displayed */
+}
+  
+  
+#disclaimerTextArea {
+    width: 100%;
+    background: #333;
+    color: #e3e3e3;
+    padding: 10px;
+    border: 1px solid #555;
+    border-radius: 4px;
+}
+
+#labelOptionsModal #surveySection label {
+    display: block;
+    margin-top: 15px;
+    font-weight: bold;
+  }
+  
+  #labelOptionsModal #surveySection textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    background: #333;
+    color: #e3e3e3;
+    margin-top: 5px !important;
+    box-sizing: border-box;
+  }
+  /* Apply consistent spacing and styling for labels inside the unified modal */
+#labelOptionsModal .modal-body label {
+    margin-top: 15px;
+    font-weight: bold;
+    display: block;
+}
+/* Ensure textareas within the unified modal share consistent styling */
+#labelOptionsModal textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #555;
+    border-radius: 5px;
+    box-sizing: border-box;
+    background-color: #333;
+    color: #e3e3e3;
+    margin-top: 5px;
+}
+
+
+  
+/* Specific styling for Disclaimer Textarea to be larger */
+#disclaimerSection textarea {
+    min-height: 300px;  /* Adjust this value as needed for desired height */
+}
