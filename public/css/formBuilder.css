@@ -138,29 +138,61 @@ pre {
 }
   
 /* The main "component list" items after you've added them */
+/* The card container with pinned action buttons */
 #componentList .component-card {
-    background-color: #616161; 
-    padding: 12px;
+    position: relative;            /* for absolute‐positioned .component-actions */
+    background-color: #333;
+    padding: 8px 8px 50px 8px;     /* slightly more bottom padding to avoid overlap */
     margin-bottom: 10px;
     border-radius: 8px;
     border: 2px solid transparent;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 15px;     
-    justify-content: flex-start;
-    box-shadow: none; 
-}
-#componentList .component-card:hover {
-    background-color: #616161;
-}
-.component-details {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    white-space: nowrap;  
+    box-sizing: border-box;
+    color: #e3e3e3;
+  }
+  
+  /* Ensure label text can wrap, if needed */
+  .component-details {
+    white-space: normal;
+    word-break: break-word;
+    margin: 0;
     font-size: 14px;
-}
+  }
+  
+  /* Pin these buttons at bottom-right, so the text can grow above them */
+  .component-actions {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    display: flex;
+    gap: 8px;
+  }
+  
+  /* Fixed-width buttons (all 110px) */
+  .component-action-btn {
+    width: 110px;                  /* enough to display "Conditional" fully */
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #424242;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #ffffff;
+    font-size: 14px;
+    text-align: center;
+  
+    /* Prevent wrapping inside the button, just in case */
+    white-space: nowrap;
+    overflow: hidden;
+  
+    transition: background-color 0.2s ease;
+  }
+  
+  .component-action-btn:hover {
+    background-color: #757575;
+  }
+  
+  
   
 /* Hide JSON preview by default */
 #formPreview,
@@ -256,34 +288,27 @@ h3:contains("Form JSON Preview") {
     z-index: 1090;
 }
   
-/* Extra nested (super-nested) */
+/* Extra nested (super-top) */
 .super-top {
     z-index: 2000 !important;
-  }
-  
-  /* Higher z-index for nested overlays when opening additional modals */
-  .super-top ~ .overlay {
+}
+.super-top ~ .overlay {
     z-index: 1999 !important;
-  }
+}
   
-  /* For further nested modals, use additional classes if needed */
-  .super-nested2 {
+.super-nested2 {
     z-index: 3000 !important;
-  }
-  .super-nested3 {
-    z-index: 4000 !important;
-  }
-  
-  /* Ensure overlays for nested modals also have increased z-index */
-  .super-nested2 ~ .overlay {
+}
+.super-nested2 ~ .overlay {
     z-index: 2999 !important;
-  }
-  .super-nested3 ~ .overlay {
+}
+  
+.super-nested3 {
+    z-index: 4000 !important;
+}
+.super-nested3 ~ .overlay {
     z-index: 3999 !important;
-  }
-  
-  
-
+}
   
 .modal-content {
     display: flex;
@@ -382,7 +407,7 @@ h3:contains("Form JSON Preview") {
     flex-wrap: wrap;
     gap: 8px;                    /* Space between tags and input */
     padding: 8px;
-    margin-top: 5px;               /* Inner padding around the edges */
+    margin-top: 5px;            /* Inner padding around the edges */
     border: 1px solid #555;
     border-radius: 8px;
     background-color: #333;
@@ -427,7 +452,7 @@ h3:contains("Form JSON Preview") {
     font-weight: bold;
   }
   
-  #labelOptionsModal #surveySection textarea {
+#labelOptionsModal #surveySection textarea {
     width: 100%;
     padding: 8px;
     border: 1px solid #555;
@@ -436,8 +461,9 @@ h3:contains("Form JSON Preview") {
     color: #e3e3e3;
     margin-top: 5px !important;
     box-sizing: border-box;
-  }
-  /* Apply consistent spacing and styling for labels inside the unified modal */
+}
+  
+/* Apply consistent spacing and styling for labels inside the unified modal */
 #labelOptionsModal .modal-body label {
     margin-top: 15px;
     font-weight: bold;
@@ -454,10 +480,59 @@ h3:contains("Form JSON Preview") {
     color: #e3e3e3;
     margin-top: 5px;
 }
-
-
   
 /* Specific styling for Disclaimer Textarea to be larger */
 #disclaimerSection textarea {
-    min-height: 300px;  /* Adjust this value as needed for desired height */
+    min-height: 300px;
+}
+
+/* Optional fancy toggle styling */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    vertical-align: middle;
+}
+  
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+  
+.slider.round {
+    border-radius: 34px;
+}
+  
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; 
+    left: 0; 
+    right: 0; 
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 20px;
+}
+  
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px; 
+    width: 16px;
+    left: 3px; 
+    top: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+  
+input:checked + .slider {
+    background-color: #616161;
+}
+  
+input:checked + .slider:before {
+    transform: translateX(18px);
 }
