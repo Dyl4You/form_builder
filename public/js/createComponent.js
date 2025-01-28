@@ -58,16 +58,16 @@ function createComponent(type, typedLabel = "", options = [], hideLabelParam = f
       templates: {
         header: "",
         row: `<style>
-  .custom-table {
+  .thc-table {
     width: 100%;
     border-collapse: separate !important;
     border-spacing: 5px !important;
     table-layout: fixed !important;
     overflow: hidden !important;
-    min-width: 500px;
+    min-width: 600px;
   }
-  .custom-table th,
-  .custom-table td {
+  .thc-table th,
+  .thc-table td {
     font-size: 14px;
     padding: 5px;
     word-break: break-word;
@@ -75,74 +75,139 @@ function createComponent(type, typedLabel = "", options = [], hideLabelParam = f
     border-radius: 5px;
     text-align: left;
   }
-  .custom-table tbody td {
+  .thc-table thead th {
+    background: #f4f4f4; /* Colored background for headers */
+  }
+  .thc-table tbody td {
     border-bottom: 5px solid #e8e8e8;
   }
-  .custom-table tr {
-    transition: background-color 0.3s ease;
+  .thc-table tr {
+    transition: background-color 0.6s ease !important;
   }
-  .custom-table tr:hover {
+  .thc-table tr:hover {
     background-color: #f4f4f4;
   }
-  .custom-table th {
-    background: #f4f4f4;
+  .thc-table .row-counter {
+    border-left: 5px solid #e8e8e8;
+    border-bottom: none;
   }
+  .thc-table tr {
+    background-color: transparent;
+    transition: background-color 0.3s ease;
+  }
+  /* Button container styling */
   .button-container {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    margin: 0.5rem 0;
+    display: flex !important;
+    justify-content: flex-end !important;
+    gap: 0.5rem !important;
+    margin: 0.5rem 0 !important;
   }
+
+  /* Icon buttons styling */
   .button-container .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    padding: 0.5rem;
-    font-size: 1.25rem;
-    border-radius: 0.25rem;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    padding: 0.5rem !important;
+    font-size: 1.25rem !important;
+    border-radius: 0.25rem !important;
   }
+
+  /* Specific button styling */
   .btn-light {
-    background-color: #f8f9fa;
-    border: 1px solid #ced4da;
-    color: #495057;
+    background-color: #f8f9fa !important;
+    border: 1px solid #ced4da !important;
+    color: #495057 !important;
   }
+
   .btn-light:hover {
-    background-color: #e2e6ea;
+    background-color: #e2e6ea !important;
   }
+
   .btn-danger {
-    background-color: #dc3545;
-    border: 1px solid #dc3545;
-    color: #fff;
+    background-color: #dc3545 !important;
+    border: 1px solid #dc3545 !important;
+    color: #fff !important;
   }
+
   .btn-danger:hover {
-    background-color: #c82333;
+    background-color: #c82333 !important;
+  }
+
+  .thc-table .list-group {
+    display: table !important;
+  }
+
+  @media (max-width: 600px) {
+    /* Keep button container horizontal on mobile */
+    .button-container {
+      justify-content: flex-end !important;
+      gap: 0.25rem !important;
+    }
+  }
+  .bg-low-risks {
+    color: #2fa844 !important;
+  }
+  .bg-moderate-risks {
+    color: #fac007 !important;
+  }
+  .bg-high-risks {
+    color: #f77e15 !important;
+  }
+  .bg-danger-risks {
+    color: #dc3545 !important;
+  }
+  .fw-bold {
+    font-weight: bold;
+  }
+  .signature-cell {
+    max-width: 100%;
+    height: auto;
+  }
+  @media only screen and (max-width: 600px) {
+    .bg-low-risks {
+      color: #2fa844 !important;
+    }
+    .bg-moderate-risks {
+      color: #fac007 !important;
+    }
+    .bg-high-risks {
+      color: #f77e15 !important;
+    }
+    .bg-danger-risks {
+      color: #dc3545 !important;
+    }
+  }
+  .thc-table .row-counter {
+    width: 30px;
+    text-align: center;
+    font-weight: bold;
+    background: #f4f4f4;
+    padding: 5px;
+    vertical-align: middle;
   }
 </style>
 
-{% var fields = components; %}
-
-
-{% if (rowIndex === 0) { %}
-<table class="custom-table">
+<table class="thc-table">
+  {% if (rowIndex === 0) { %}
   <thead>
     <tr>
-      {% fields.forEach(field => { %}
-        <th>{{ field.label }}</th>
+      {% components.forEach(function(component) { %}
+        <th>{{ component.label }}</th>
       {% }) %}
     </tr>
   </thead>
+  {% } %}
   <tbody>
-{% } %}
-
 <tr>
-  {% fields.forEach(field => { %}
-    <td>{{ row[field.key] }}</td>
+  {% components.forEach(function(component) { %}
+    <td>
+      {{ getView(component, row[component.key]) }}
+    </td>
   {% }) %}
 </tr>
-
-{% if (rowIndex === instance.editRows.length - 1) { %}
   </tbody>
 </table>
 
@@ -157,7 +222,6 @@ function createComponent(type, typedLabel = "", options = [], hideLabelParam = f
       </button>
     {% } %}
   </div>
-{% } %}
 {% } %}`
       },
       rowDrafts: false,
