@@ -6,7 +6,7 @@ build:
     - npm ci
     - echo $SERVICE_ACCOUNT > /tmp/$CI_PIPELINE_ID.json
     - gcloud auth activate-service-account --key-file /tmp/$CI_PIPELINE_ID.json
-    - gcloud --quiet --project $PROJECT_ID app deploy app.yaml
+    - gcloud --quiet --project $PROJECT_ID app deploy form-builder/app.yaml
   tags:
     - corfix
 after_script:
