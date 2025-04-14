@@ -1,22 +1,27 @@
 {
-    "name": "pdf-docx-to-formio-parser",
-    "version": "1.0.0",
-    "description": "An application to upload PDFs and DOCXs, parse them into Form.io JSON with dictionary management.",
-    "main": "server.js",
-    "scripts": {
-      "start": "node src/server.js"
-    },
-    "author": "Your Name",
-    "license": "MIT",
-    "dependencies": {
-      "express": "^4.21.2",
-      "express-validator": "^6.14.3",
-      "lodash": "^4.17.21",
-      "mammoth": "^1.9.0",
-      "multer": "^1.4.5-lts.1",
-      "pdf-parse": "^1.1.1",
-      "sqlite3": "^5.1.2",
-      "uuid": "^9.0.1"
-    }
+  "name": "form-builder",
+  "version": "1.0.0",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "@livekit/components-react": "^2.8.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.18.2",
+    "framer-motion": "^12.4.3",
+    "livekit-client": "^2.9.1",
+    "livekit-server-sdk": "^2.10.1",
+    "lodash": "^4.17.21",
+    "next": "^15.1.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "sqlite3": "^5.1.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "nodemon": "^2.0.22"
   }
-  
+}

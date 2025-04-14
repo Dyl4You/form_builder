@@ -1,6 +1,6 @@
 // src/parser/unifiedParser.js
 const _ = require('lodash');
-const db = require('../../db/db'); // adjusted path to the database module
+const db = require('../db/db');
 
 // The token that triggers building a multi-question survey from lines with "[inspection]"
 const INSPECTION_TOKEN = '[inspection]';
@@ -44,28 +44,7 @@ function mapOptions(optionsArray) {
   }));
 }
 
-function createTextfieldComponent(line) {
-  const hideLabel = !line || line.trim() === "";
-  const fallback = "Untitled Textfield";
-  let key = generateUniqueKey(hideLabel ? fallback : line);
-
-  if (!key) {
-    key = fallback.toLowerCase().replace(/\s+/g, '_');
-  }
-
-  return {
-    label: line || "",
-    hideLabel: hideLabel,
-    labelWidth: 30,
-    labelMargin: 3,
-    key: key,
-    type: 'textfield',
-    input: true,
-    tableView: true,
-    reportable: true,
-    validate: { required: true }
-  };
-}
+// -- Removed createTextfieldComponent entirely! -- //
 
 function createTextareaComponent(line) {
   const hideLabel = !line || line.trim() === "";
@@ -545,10 +524,12 @@ function createSurveyComponent(label) {
     if (!surveyQuestionsInput || surveyQuestionsInput.trim() === "") {
       alert("Survey questions are required. Please try again.");
     } else {
-      questions = surveyQuestionsInput.split(",").map((q) => ({
-        label: q.trim(),
-        value: _.camelCase(q.trim())
-      }));
+      questions = surveyQuestionsInput
+        .split(",")
+        .map(q => ({
+          label: q.trim(),
+          value: _.camelCase(q.trim())
+        }));
     }
   }
 
@@ -559,10 +540,12 @@ function createSurveyComponent(label) {
     if (!surveyOptionsInput || surveyOptionsInput.trim() === "") {
       alert("Survey options are required. Please try again.");
     } else {
-      values = surveyOptionsInput.split(",").map((v) => ({
-        label: v.trim(),
-        value: _.camelCase(v.trim())
-      }));
+      values = surveyOptionsInput
+        .split(",")
+        .map(v => ({
+          label: v.trim(),
+          value: _.camelCase(v.trim())
+        }));
     }
   }
 
@@ -606,8 +589,8 @@ function setupConditionalLogic(component, allComponents) {
   if (!enableConditional) return;
 
   const showValue = confirm("Should the component be shown when the condition is met? (OK for true, Cancel for false)");
-
   const componentKeys = allComponents.map(comp => comp.key).filter(key => key !== component.key);
+
   if (componentKeys.length === 0) {
     alert("No other components available for conditional logic.");
     return;
@@ -634,7 +617,7 @@ function setupConditionalLogic(component, allComponents) {
   component.conditional = {
     show: showValue,
     when: whenKey,
-    eq: eqValue,
+    eq: eqValue
   };
 }
 
@@ -648,14 +631,18 @@ function loadDictionaryRows(documentId) {
   });
 }
 
+/**
+ * Replaces references to "textfield" with a fallback of "textarea"
+ * if the dictionary doesn't specify a known type.
+ */
 function buildComponentFromDictionary(line, componentType, allComponents) {
   let optionsArray = [];
   if (['selectboxes', 'select', 'radio'].includes(componentType)) {
     const optionsInput = prompt("Enter options separated by commas:");
     if (optionsInput && optionsInput.trim() !== "") {
-      optionsArray = optionsInput.split(',').map(opt => ({ 
-        label: opt.trim(), 
-        value: _.camelCase(opt.trim()) 
+      optionsArray = optionsInput.split(',').map(opt => ({
+        label: opt.trim(),
+        value: _.camelCase(opt.trim())
       }));
     }
     if (optionsArray.length === 0) {
@@ -702,16 +689,16 @@ function buildComponentFromDictionary(line, componentType, allComponents) {
     case 'disclaimer':
       component = createDisclaimerComponent(line);
       break;
-    case 'textfield':
+
+    // Fallback: use textarea if dictionary doesn't specify a recognized type
     default:
-      component = createTextfieldComponent(line);
+      component = createTextareaComponent(line);
       break;
   }
 
   if (component) {
     setupConditionalLogic(component, allComponents);
   }
-
   return component;
 }
 
@@ -723,11 +710,14 @@ async function parseTextUnified(text, documentId) {
     .map(line => line.trim())
     .filter(Boolean);
 
+  // Instead of defaulting to textfield, let's just default to textarea if no "group"
   const root = createFieldset('Grouping');
   const allComponents = [];
 
   for (const line of lines) {
-    const compType = line.toLowerCase().includes('group') ? 'fieldset' : 'textfield';
+    const compType = line.toLowerCase().includes('group')
+      ? 'fieldset'
+      : 'textarea';
 
     const comp = buildComponentFromDictionary(line, compType, allComponents);
     if (comp) {
@@ -745,7 +735,6 @@ module.exports = {
   usedKeys,
   generateUniqueKey,
   createFieldset,
-  createTextfieldComponent,
   createTextareaComponent,
   createNumberComponent,
   createFileComponent,

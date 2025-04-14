@@ -10,7 +10,7 @@ html, body {
     background-color: #2e2e2e; 
     color: #e3e3e3;
 }
-  
+
 /* Container for main form area */
 .container {
     padding: 20px;
@@ -19,19 +19,19 @@ html, body {
     background-color: #424242;
     border-radius: 10px;
 }
-  
+
 .wrapper {
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
 }
-  
+
 h1, h3 {
     color: #e3e3e3;
     margin-bottom: 15px;
 }
-  
+
 /* "Save Form" button at the top */
 #saveFormBtn {
     font-size: 14px;
@@ -46,13 +46,13 @@ h1, h3 {
 #saveFormBtn:hover {
     background-color: #757575;
 }
-  
+
 label {
     display: block;
     margin-top: 15px;
     font-weight: bold;
 }
-  
+
 /* Basic input, select, and button styles 
    with line-height for vertical placeholder alignment */
 select, input, button, textarea {
@@ -64,44 +64,40 @@ select, input, button, textarea {
     box-sizing: border-box;
     background-color: #333;
     color: #e3e3e3;
-  
     /* Force a stable height + line-height: */
     height: 2.5rem;   
     line-height: 2.5rem;
+    flex: 0 0 120px;
 }
 button {
     font-size: 14px;
     cursor: pointer;
-    
     /* Force a stable height & center the text vertically: */
     height: 2.5rem;
     line-height: 2.5rem;
-    
-    /* Or use inline-flex for perfect centering if needed: */
     display: inline-flex;
-    align-items: center;        /* vertical centering */
-    justify-content: center;    /* horizontal centering of text */
-    
-    /* The rest of your button styling: */
-    padding: 0 1rem;            /* or something narrower since we have a fixed height */
+    align-items: center;
+    justify-content: center;
+    padding: 0 1rem;
     border: 1px solid #555;
     border-radius: 5px;
     background-color: #333;
     color: #e3e3e3;
     transition: background-color 0.2s ease;
-    border: none;               /* if you prefer none or keep #555 if you like */
+    border: none;
+    flex: 0 0 120px;
 }
 button:hover {
     background-color: #757575;
 }
-  
+
 /* Placeholder color & vertical centering */
 ::placeholder,
 ::-webkit-input-placeholder {
     color: #b2b2b2;
     opacity: 1;
 }
-  
+
 /* Pre blocks for JSON, etc. */
 pre {
     background: #333;
@@ -110,7 +106,7 @@ pre {
     border-radius: 5px;
     overflow-x: auto;
 }
-  
+
 /* Card container for picking component types */
 .card-container {
     display: flex;
@@ -119,7 +115,6 @@ pre {
     margin-top: 10px;
 }
 .card {
-    /* fixed width to keep them aligned, e.g. 120px */
     flex: 0 0 120px;
     background-color: #333;
     padding: 8px;
@@ -136,40 +131,38 @@ pre {
 .card.selected {
     background-color: #616161;
 }
-  
+
 /* The main "component list" items after you've added them */
-/* The card container with pinned action buttons */
 #componentList .component-card {
-    position: relative;            /* for absolute‐positioned .component-actions */
+    position: relative;
     background-color: #333;
-    padding: 8px 8px 50px 8px;     /* slightly more bottom padding to avoid overlap */
+    padding: 8px;
     margin-bottom: 10px;
     border-radius: 8px;
-    border: 2px solid transparent;
     box-sizing: border-box;
     color: #e3e3e3;
-  }
-  
-  /* Ensure label text can wrap, if needed */
-  .component-details {
+}
+
+/* Ensure label text can wrap, if needed */
+.component-details {
     white-space: normal;
     word-break: break-word;
     margin: 0;
     font-size: 14px;
-  }
-  
-  /* Pin these buttons at bottom-right, so the text can grow above them */
-  .component-actions {
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
+}
+
+/* Let the action buttons flow in a row rather than absolute positioning */
+.component-actions {
+    position: static;
     display: flex;
     gap: 8px;
-  }
-  
-  /* Fixed-width buttons (all 110px) */
-  .component-action-btn {
-    width: 110px;                  /* enough to display "Conditional" fully */
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+/* Fixed-width buttons (all 110px) */
+.component-action-btn {
+    width: 110px;
     height: 32px;
     display: inline-flex;
     align-items: center;
@@ -180,20 +173,18 @@ pre {
     color: #ffffff;
     font-size: 14px;
     text-align: center;
-  
-    /* Prevent wrapping inside the button, just in case */
     white-space: nowrap;
     overflow: hidden;
-  
     transition: background-color 0.2s ease;
-  }
-  
-  .component-action-btn:hover {
+}
+.component-action-btn:hover {
     background-color: #757575;
-  }
-  
-  
-  
+}
+.component-action-btn[data-action="moveup"],
+.component-action-btn[data-action="movedown"] {
+    width: 60px;
+}
+
 /* Hide JSON preview by default */
 #formPreview,
 h3:contains("Form JSON Preview") { 
@@ -202,7 +193,7 @@ h3:contains("Form JSON Preview") {
 #jsonPreviewContainer {
     display: none;
 }
-  
+
 /* Fieldset container for "root" or sub-fieldsets */
 .fieldset-container {
     display: flex;
@@ -227,34 +218,11 @@ h3:contains("Form JSON Preview") {
     background-color: #616161;
     border: 2px solid transparent;
 }
-  
-/* Notification (top-right) */
-.notification {
-    position: fixed;
-    top: 1rem;
-    right: 1rem;
-    background: #424242;
-    color: #e3e3e3;
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    opacity: 0;
-    transition: opacity 0.5s ease, transform 0.5s ease;
-    transform: translateY(-20px);
-    z-index: 1000;
-}
-.notification.show {
-    opacity: 1;
-    transform: translateY(0);
-}
-  
-/* ===========================
-   Modals: consistent spacing
-   =========================== */
-/* Primary modal */
+
 .modal {
     display: none;
-    width: 500px;
+    width: 75%;
+    max-width: 1400px;
     max-height: 80vh;
     overflow-y: auto;
     background: #424242;
@@ -266,8 +234,7 @@ h3:contains("Form JSON Preview") {
     z-index: 1000; /* Base z-index for modals */
     padding: 16px;
 }
-  
-/* Primary overlay */
+
 .overlay {
     display: none;
     position: fixed;
@@ -276,40 +243,32 @@ h3:contains("Form JSON Preview") {
     width: 100%;
     height: 100%;
     background: rgba(0,0,0,0.5);
-    z-index: 900; /* Slightly below the modal */
+    z-index: 900;
 }
-  
-/* Nested modal (e.g. for column editing or subcomponent editing) */
-/* Nested modals (within a modal) */
 .modal.nested {
     z-index: 1100;
 }
 .overlay.nested {
     z-index: 1090;
 }
-  
-/* Extra nested (super-top) */
 .super-top {
     z-index: 2000 !important;
 }
 .super-top ~ .overlay {
     z-index: 1999 !important;
 }
-  
 .super-nested2 {
     z-index: 3000 !important;
 }
 .super-nested2 ~ .overlay {
     z-index: 2999 !important;
 }
-  
 .super-nested3 {
     z-index: 4000 !important;
 }
 .super-nested3 ~ .overlay {
     z-index: 3999 !important;
 }
-  
 .modal-content {
     display: flex;
     flex-direction: column;
@@ -318,20 +277,17 @@ h3:contains("Form JSON Preview") {
     padding: 0;
     background: transparent;
 }
-  
 .modal-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: 0;  /* Reset default margin */
+    margin: 0;
 }
-  
 .modal-header h3 {
     margin: 0;
     font-size: 20px;
     color: #e3e3e3;
 }
-  
 /* Close (X) button */
 .close-btn {
     font-size: 20px;
@@ -340,19 +296,17 @@ h3:contains("Form JSON Preview") {
     border: none;
     color: #e3e3e3;
 }
-  
 .modal-body {
     margin: 0;
     padding: 20px 20px 10px;
 }
 .modal-buttons {
     display: flex;
-    align-items: center;  /* ensures vertical centering of children */
+    align-items: center;
     gap: 16px;
     margin-top: 10px;
     justify-content: flex-start;
 }
-  
 .modal-buttons button {
     font-size: 14px;
     padding: 6px 12px;
@@ -362,11 +316,9 @@ h3:contains("Form JSON Preview") {
     border: none;
     cursor: pointer;
 }
-  
 .modal-buttons button:hover {
     background-color: #757575;
 }
-  
 /* The "component options" modal specifically */
 #componentOptionsModal {
     box-shadow: none;
@@ -384,13 +336,12 @@ h3:contains("Form JSON Preview") {
     padding: 8px;
     background: #2c2c2c;
     border-radius: 4px;
-    box-shadow: none; 
+    box-shadow: none;
 }
-  
 .tag-bubble {
     background-color: #616161;
     color: #e3e3e3;
-    padding: 6px 10px;          /* Enough space for comfortable text */
+    padding: 6px 10px;
     border-radius: 8px;
     display: inline-flex;
     align-items: center;
@@ -401,42 +352,35 @@ h3:contains("Form JSON Preview") {
 .tag-bubble:hover {
     background-color: #757575;
 }
-  
 .tag-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;                    /* Space between tags and input */
+    gap: 8px;
     padding: 8px;
-    margin-top: 5px;            /* Inner padding around the edges */
+    margin-top: 5px;
     border: 1px solid #555;
     border-radius: 8px;
     background-color: #333;
     width: 100%;
     max-width: 100%;
-    box-sizing: border-box;      /* So padding/border don’t overflow */
+    box-sizing: border-box;
 }
-  
-/* The input for creating new tags */
 .tag-container input {
-    flex: 1 1 auto;             /* Fill remaining space on the current line */
-    min-width: 120px;           /* Enough room for placeholder text */
+    flex: 1 1 auto;
+    min-width: 120px;
     border: none;
     background: transparent;
     color: #e3e3e3;
     outline: none;
     margin: 0;
-    padding: 6px 0;             /* Vertical padding to match tag-bubble height */
+    padding: 6px 0;
     font-size: 14px;
     line-height: 1.5;
 }
-  
-/* Placeholder styling, if you want a consistent placeholder color */
 .tag-container input::placeholder {
-    color: #b2b2b2; 
-    opacity: 1; /* ensures the placeholder color is actually displayed */
+    color: #b2b2b2;
+    opacity: 1;
 }
-  
-  
 #disclaimerTextArea {
     width: 100%;
     background: #333;
@@ -445,31 +389,29 @@ h3:contains("Form JSON Preview") {
     border: 1px solid #555;
     border-radius: 4px;
 }
-
+/* labelOptionsModal (Survey Section) => bigger textareas */
 #labelOptionsModal #surveySection label {
     display: block;
     margin-top: 15px;
     font-weight: bold;
-  }
-  
+}
 #labelOptionsModal #surveySection textarea {
     width: 100%;
     padding: 8px;
+    resize: vertical;
     border: 1px solid #555;
     border-radius: 4px;
     background: #333;
     color: #e3e3e3;
     margin-top: 5px !important;
     box-sizing: border-box;
+    min-height: 200px;
 }
-  
-/* Apply consistent spacing and styling for labels inside the unified modal */
 #labelOptionsModal .modal-body label {
     margin-top: 15px;
     font-weight: bold;
     display: block;
 }
-/* Ensure textareas within the unified modal share consistent styling */
 #labelOptionsModal textarea {
     width: 100%;
     padding: 10px;
@@ -479,14 +421,14 @@ h3:contains("Form JSON Preview") {
     background-color: #333;
     color: #e3e3e3;
     margin-top: 5px;
+    min-height: 150px;
 }
-  
-/* Specific styling for Disclaimer Textarea to be larger */
+/* disclaimerSection => even larger textareas (400px) */
 #disclaimerSection textarea {
-    min-height: 300px;
+    min-height: 400px;
+    resize: vertical;
 }
-
-/* Optional fancy toggle styling */
+/* Fancy toggle styling */
 .switch {
     position: relative;
     display: inline-block;
@@ -494,17 +436,14 @@ h3:contains("Form JSON Preview") {
     height: 22px;
     vertical-align: middle;
 }
-  
 .switch input {
     opacity: 0;
     width: 0;
     height: 0;
 }
-  
 .slider.round {
     border-radius: 34px;
 }
-  
 .slider {
     position: absolute;
     cursor: pointer;
@@ -516,11 +455,10 @@ h3:contains("Form JSON Preview") {
     transition: .4s;
     border-radius: 20px;
 }
-  
 .slider:before {
     position: absolute;
     content: "";
-    height: 16px; 
+    height: 16px;
     width: 16px;
     left: 3px; 
     top: 3px;
@@ -528,11 +466,107 @@ h3:contains("Form JSON Preview") {
     transition: .4s;
     border-radius: 50%;
 }
-  
 input:checked + .slider {
     background-color: #616161;
 }
-  
 input:checked + .slider:before {
     transform: translateX(18px);
+}
+/* bulkOptionsInputUnified => bigger min-height for multi-line options */
+#bulkOptionsInputUnified {
+    width: 100%;
+    min-height: 300px;
+    max-height: 600px;
+    resize: vertical;
+    overflow-y: auto;
+    background-color: #333;
+    color: #e3e3e3;
+    border: 1px solid #555;
+    border-radius: 5px;
+    padding: 10px;
+    box-sizing: border-box;
+}
+.fieldset-panel {
+    margin-bottom: 15px;
+    border: 1px solid #555;
+    border-radius: 6px;
+    background-color: #333;
+}
+.fieldset-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    background-color: #424242;
+    border-radius: 6px 6px 0 0;
+}
+.fieldset-label {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.fieldset-actions {
+    display: flex;
+    gap: 8px;
+}
+.fieldset-toggle-btn {
+    background-color: #616161;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: #fff;
+    cursor: pointer;
+}
+.fieldset-toggle-btn:hover {
+    background-color: #757575;
+}
+.fieldset-content {
+    padding: 10px;
+}
+.fieldset-content.collapsed {
+    display: none;
+}
+.no-components {
+    font-style: italic;
+    opacity: 0.8;
+}
+
+button.card.add-fieldset-button {
+    flex: 0 0 120px;
+    width: auto;
+    height: auto;
+    line-height: normal;
+    padding: 8px;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background-color: #333;
+    color: #e3e3e3;
+    font-size: 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border 0.2s ease;
+}
+button.card.add-fieldset-button:hover {
+    background-color: #616161;
+}
+
+.row-button {
+    width: 32px;       /* Set a fixed width */
+    height: 32px;      /* Set a fixed height to form a square */
+    font-size: 12px;   /* Smaller font size */
+    padding: 0;        /* Remove extra padding */
+    border-radius: 6px;/* Adjust border-radius for rounded corners */
+    background-color: #616161;
+    color: #e3e3e3;
+    border: none;
+    cursor: pointer;
+}
+.row-button:hover {
+    background-color: #757575; 
+    border-color: #999999;
+}
+.row-button.selected {
+    background-color: #9e9e9e;
+    border-color: #cccccc;
+    color: #ffffff;
 }

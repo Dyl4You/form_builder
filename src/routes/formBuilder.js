@@ -1,282 +1,261 @@
-/*************************************************************
- * src/routes/formBuilder.js
- *************************************************************/
-
 const express = require('express');
 const router = express.Router();
-const _ = require('lodash'); // For _.startCase or _.camelCase
+const _ = require('lodash'); // for _.startCase and _.camelCase
 
 // GET /formbuilder
 router.get('/formbuilder', (req, res) => {
-  // List of component types (columns removed)
+  // List of component types available in the form builder.
   const componentTypes = [
-    "disclaimer", 'textfield', 'textarea', 'account', 'radio', 'survey',
-    'selectboxes', 'select', 'file', 'phoneNumber',
-    'address', 'asset', 'datetime', 'date', 'time',
-    'number', 'currency', 'fieldset'
+    "disclaimer", "textfield", "textarea", "account", "radio", "survey",
+    "selectboxes", "select", "file", "phoneNumber",
+    "address", "asset", "datetime", "date", "time",
+    "number", "currency"
   ];
 
-  // Create "cards" for each type
+  // Build the HTML for the type cards.
   const cardsHtml = componentTypes
     .map(type => `<div class="card" data-type="${type}">${_.startCase(type)}</div>`)
     .join('');
 
-  // Build the HTML
+  // Compose the full HTML page.
   const html = `
   <!DOCTYPE html>
   <html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <title>Simpler Form Builder</title>
-    <!-- Lodash from CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
-    <!-- Link to your external CSS -->
-    <link rel="stylesheet" href="/css/formBuilder.css" />
+      <meta charset="UTF-8">
+      <!-- Load Lodash from CDN -->
+      <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
+      <!-- External CSS -->
+      <link rel="stylesheet" href="/css/formBuilder.css" />
   </head>
   <body>
     <div class="wrapper">
       <div class="container">
-        <h1>Simpler Form Builder</h1>
-        <button id="saveFormBtn">Save Form</button>
-
-        <label>Enter a form name:</label>
-        <input id="formName" type="text" placeholder="Enter form name" />
-        
+        <h1>Simpler Form Builder</h1> 
+             
+        <!-- Component Type Section -->
         <label>Component Type:</label>
-        <div id="componentTypeContainer" class="card-container">
+        <div id="componentTypeContainer" class="card-container" style="margin-bottom: 2rem;">
           ${cardsHtml}
         </div>
 
-        <label>Select a Fieldset:</label>
-        <div id="fieldsetList" class="fieldset-container"></div>
+        <!-- Fieldset Selection Row -->
+        <div style="display: flex; margin-bottom: 2rem;">
+          <!-- Column 1 -->
+          <div style="flex: 0 0 16.66%; display: flex; align-items: center;">
+            <label style="margin-right: 10px;">Select a Fieldset:</label>
+          </div>
+          <!-- Column 2 -->
+          <div style="flex: 0 0 16.66%;">
+            <div class="card-container">
+              <button id="addFieldsetBtn" class="card add-fieldset-button">Add Fieldset</button>
+            </div>
+          </div>
+        </div>
 
-        <h3>Component List</h3>
+        <!-- Fieldset List -->
+        <div id="fieldsetList" class="fieldset-container" style="margin: 2rem 0;"></div>
+
+        <!-- Component List Row -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; margin-bottom: 10px;">
+          <h3 style="margin: 0;">Component List</h3>
+          <div style="text-align: right; font-weight: 600">
+             Components: <span id="totalComponents">0</span>
+          </div>
+        </div>
         <div id="componentList"></div>
 
-        <div id="jsonPreviewContainer">
+        <!-- JSON Preview -->
+        <div id="jsonPreviewContainer" style="margin-top: 2rem;">
           <h3>Form JSON Preview</h3>
           <pre id="formPreview"></pre>
         </div>
 
-        <button id="copyJsonBtn">Copy JSON</button>
+        <button id="copyJsonBtn" style="margin-top: 1rem;">Copy JSON</button>
       </div>
     </div>
 
     <!-- Dark overlay for modals -->
     <div id="overlay" class="overlay"></div>
 
-    <!-- ===============================
-         ALL MODALS
-         =============================== -->
+    <!-- Unified Label & Options Modal -->
+    <div id="labelOptionsModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Configure Component</h3>
+          <span class="close-btn" onclick="closeLabelOptionsModal()">×</span>
+        </div>
+        <div class="modal-body">
+          <label>Component Label:</label>
+          <input id="labelOptionsLabelInput" type="text" placeholder="Enter label" />
+          
+          <!-- Options Section (for radio/select/selectboxes) -->
+          <div id="optionsSection" style="display: none; margin-top: 15px;">
+            <label>Options (one per line or comma-separated):</label>
+            <textarea
+              id="bulkOptionsInputUnified"
+              placeholder="Ex: Option 1\\nOption 2\\nOption 3"
+              style="width: 100%; height: 100px;"
+            ></textarea>
+          </div>
 
-    <!-- Unified Label & Options Modal (includes Disclaimer Section) -->
-<div id="labelOptionsModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>Configure Component</h3>
-      <span class="close-btn" onclick="closeLabelOptionsModal()">×</span>
-    </div>
-    <div class="modal-body">
-      <label>Component Label:</label>
-      <input id="labelOptionsLabelInput" type="text" placeholder="Enter label" />
+          <!-- Disclaimer Section -->
+          <div id="disclaimerSection" style="display: none; margin-top: 15px;">
+            <label>Disclaimer Text:</label>
+            <textarea
+              id="disclaimerTextAreaUnified"
+              rows="4"
+              placeholder="Enter disclaimer text"
+              style="width: 100%;"
+            ></textarea>
+          </div>
 
-      <!-- Options Section for radio/select/selectboxes -->
-      <div id="optionsSection" style="display: none;">
-        <label>Options:</label>
-        <div id="optionsTagContainerUnified" class="tag-container">
-          <input id="optionTagInputUnified" type="text" placeholder="Type option and press comma or enter" />
+          <!-- Survey Section -->
+          <div id="surveySection" style="display: none; margin-top: 15px;">
+            <label>Survey Questions (one per line or comma-separated):</label>
+            <textarea
+              id="surveyQuestionsInputUnified"
+              placeholder="Q1\\nQ2\\nQ3"
+              style="width: 100%; height: 100px;"
+            ></textarea>
+
+            <label style="margin-top: 15px;">Survey Options (one per line or comma-separated):</label>
+            <textarea
+              id="surveyOptionsInputUnified"
+              placeholder="Option 1\\nOption 2\\nOption 3"
+              style="width: 100%; height: 100px;"
+            ></textarea>
+          </div>
+
+          <div id="hideLabelSection" style="margin-top: 15px; display: none;">
+            <label>Hide Label?</label>
+            <label class="switch" style="margin-left: 10px;">
+              <input type="checkbox" id="hideLabelToggle" />
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div id="rowButtonsContainer" style="margin-top: 15px;">
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+              <button id="row1Btn" class="row-button">Row 1</button>
+              <button id="row3Btn" class="row-button">Row 3</button>
+            </div>
+          </div>
+
+          <div class="modal-buttons">
+            <button id="labelOptionsModalSaveBtn">Save</button>
+          </div>
         </div>
       </div>
+    </div>
 
-      <!-- Disclaimer Section (retained) -->
-      <div id="disclaimerSection" style="display: none;">
-        <label>Disclaimer Text:</label>
-        <textarea id="disclaimerTextAreaUnified" rows="4" placeholder="Enter disclaimer text"></textarea>
-      </div>
-
-      <!-- Survey Section -->
-      <div id="surveySection" style="display: none;">
-        <label>Survey Questions:</label>
-        <div id="surveyQuestionsTagContainerUnified" class="tag-container">
-          <input id="surveyQuestionTagInputUnified" type="text" placeholder="Type question and press comma or enter" />
+    <!-- Conditional Logic Modal -->
+    <div id="conditionalModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Configure Conditional Logic</h3>
+          <span class="close-btn" onclick="closeConditionalModal()">×</span>
         </div>
-        <label>Survey Options:</label>
-        <div id="surveyOptionsTagContainerUnified" class="tag-container">
-          <input id="surveyOptionTagInputUnified" type="text" placeholder="Type option and press comma or enter" />
+        <div class="modal-body">
+          <label>Triggering Component Key:</label>
+          <div id="whenKeyCards" class="card-container"></div>
+          <label>Trigger Value:</label>
+          <div id="eqValueCards" class="card-container"></div>
+        </div>
+        <div class="modal-buttons">
+          <button id="saveConditionalLogicBtn">Save</button>
+          <button id="clearConditionalLogicBtn">Clear Trigger</button>
+          <button id="backFromConditionalBtn">Back</button>
         </div>
       </div>
+    </div>
 
-      <!-- NEW: Hide Label Toggle Section -->
-      <div id="hideLabelSection" style="margin-top: 15px; display: none;">
-        <label>Hide Label?</label>
-
-        <!-- Option A: Fancy toggle switch -->
-        <label class="switch" style="margin-left: 10px;">
-          <input type="checkbox" id="hideLabelToggle" />
-          <span class="slider round"></span>
-        </label>
-
-        <!-- 
-          Option B (simpler):
-          <label style="margin-left: 10px;">
-            <input type="checkbox" id="hideLabelToggle" />
-            Yes
-          </label> 
-        -->
-      </div>
-      <div id="disableSection" style="display: none; margin-left: 20px;">
-        <label>Disable Field?</label>
-          <label class="switch" style="margin-left: 10px;">
-          <input type="checkbox" id="disableToggle" />
-          <span class="slider round"></span>
-       </label>
-     </div>
-    </div>
-    <div class="modal-buttons">
-      <button id="labelOptionsModalSaveBtn">Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- Conditional Logic Modal -->
-<div id="conditionalModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>Configure Conditional Logic</h3>
-      <span class="close-btn" onclick="closeConditionalModal()">×</span>
-    </div>
-    <div class="modal-body">
-      <label>Triggering Component Key:</label>
-      <div id="whenKeyCards" class="card-container"></div>
-      <label>Trigger Value:</label>
-      <div id="eqValueCards" class="card-container"></div>
-    </div>
-    <div class="modal-buttons">
-      <button id="saveConditionalLogicBtn">Save</button>
-      <button id="clearConditionalLogicBtn">Clear Trigger</button>
-      <button id="backFromConditionalBtn">Back</button>
-    </div>
-  </div>
-</div>
-
-<!-- Input Modal (for labeling components) -->
-<div id="inputModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>Enter Component Label</h3>
-      <span class="close-btn" onclick="closeInputModal()">×</span>
-    </div>
-    <div class="modal-body">
-      <input id="componentLabelInput" type="text" placeholder="Component label" />
-      <button id="dictateLabelAdvancedBtn" type="button" onclick="dictateLabelAdvanced()">Speak (Advanced)</button>
-    </div>
-    <div class="modal-buttons" id="inputModalButtons">
-      <!-- Dynamically added: Save, Hide Label, etc. -->
-    </div>
-  </div>
-</div>
-
-<!-- Remove or comment out this block:
-<div id="componentOptionsModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>Component Options</h3>
-      <span class="close-btn" onclick="closeComponentOptionsModal()">×</span>
-    </div>
-    <div class="modal-body">
-      <div id="componentOptionDetails"></div>
-    </div>
-    <div class="modal-buttons">
-      <button id="componentAddConditionalBtn">Conditional</button>
-      <button id="componentEditBtn">Edit</button>
-      <button id="componentDeleteBtn">Delete</button>
-    </div>
-  </div>
-</div>
--->
-
-<!-- Survey Questions Modal -->
-<div id="surveyQuestionsModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>Enter Survey Questions</h3>
-      <span class="close-btn" onclick="closeSurveyQuestionsModal()">×</span>
-    </div>
-    <div class="modal-body">
-      <div id="surveyQuestionsTagContainer" class="tag-container">
-        <input id="surveyQuestionTagInput" type="text"
-               placeholder="Type question and press comma or enter" />
+    <!-- Input Modal (for labeling components) -->
+    <div id="inputModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Enter Component Label</h3>
+          <span class="close-btn" onclick="closeInputModal()">×</span>
+        </div>
+        <div class="modal-body">
+          <input id="componentLabelInput" type="text" placeholder="Component label" />
+          <button id="dictateLabelAdvancedBtn" type="button" onclick="dictateLabelAdvanced()">Speak (Advanced)</button>
+        </div>
+        <div class="modal-buttons" id="inputModalButtons"></div>
       </div>
     </div>
-    <div class="modal-buttons">
-      <button id="surveyQuestionsModalSaveBtn">Save</button>
-    </div>
-  </div>
-</div>
 
-<!-- Survey Options Modal -->
-<div id="surveyOptionsModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>Enter Survey Options</h3>
-      <span class="close-btn" onclick="closeSurveyOptionsModal()">×</span>
-    </div>
-    <div class="modal-body">
-      <div id="surveyOptionsTagContainer" class="tag-container">
-        <input id="surveyOptionTagInput" type="text"
-               placeholder="Type option and press comma or enter" />
+    <!-- Survey Questions Modal -->
+    <div id="surveyQuestionsModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Enter Survey Questions</h3>
+          <span class="close-btn" onclick="closeSurveyQuestionsModal()">×</span>
+        </div>
+        <div class="modal-body">
+          <div id="surveyQuestionsTagContainer" class="tag-container">
+            <input id="surveyQuestionTagInput" type="text" placeholder="Type question and press comma or enter" />
+          </div>
+        </div>
+        <div class="modal-buttons">
+          <button id="surveyQuestionsModalSaveBtn">Save</button>
+        </div>
       </div>
     </div>
-    <div class="modal-buttons">
-      <button id="surveyOptionsModalSaveBtn">Save</button>
-    </div>
-  </div>
-</div>
 
-<!-- Options Modal (for radio/select, etc.) -->
-<div id="optionsModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>Enter Options</h3>
-      <span class="close-btn" onclick="closeOptionsModal()">×</span>
-    </div>
-    <div class="modal-body">
-      <div id="optionsTagContainer" class="tag-container">
-        <input id="optionTagInput" type="text"
-               placeholder="Type option and press comma or enter" />
+    <!-- Survey Options Modal -->
+    <div id="surveyOptionsModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Enter Survey Options</h3>
+          <span class="close-btn" onclick="closeSurveyOptionsModal()">×</span>
+        </div>
+        <div class="modal-body">
+          <div id="surveyOptionsTagContainer" class="tag-container">
+            <input id="surveyOptionTagInput" type="text" placeholder="Type option and press comma or enter" />
+          </div>
+        </div>
+        <div class="modal-buttons">
+          <button id="surveyOptionsModalSaveBtn">Save</button>
+        </div>
       </div>
     </div>
-    <div class="modal-buttons">
-      <button id="optionsModalSaveBtn">Save</button>
-    </div>
-  </div>
-</div>
 
-<!-- Disclaimer Editor Modal -->
-<div id="disclaimerModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>Edit Disclaimer</h3>
-      <span class="close-btn" onclick="closeDisclaimerModal()">×</span>
+    <!-- Options Modal (for radio/select/selectboxes) -->
+    <div id="optionsModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Enter Options</h3>
+          <span class="close-btn" onclick="closeOptionsModal()">×</span>
+        </div>
+        <div class="modal-body">
+          <div id="optionsTagContainer" class="tag-container">
+            <input id="optionTagInput" type="text" placeholder="Type option and press comma or enter" />
+          </div>
+        </div>
+        <div class="modal-buttons">
+          <button id="optionsModalSaveBtn">Save</button>
+        </div>
+      </div>
     </div>
-    <div class="modal-body">
-      <!-- Use a textarea to edit the disclaimer text (you can use markdown or simple HTML) -->
-      <textarea id="disclaimerTextArea" rows="10" placeholder="Enter disclaimer text, use markdown if desired"></textarea>
+
+    <!-- Disclaimer Editor Modal -->
+    <div id="disclaimerModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Edit Disclaimer</h3>
+          <span class="close-btn" onclick="closeDisclaimerModal()">×</span>
+        </div>
+        <div class="modal-body">
+          <textarea id="disclaimerTextArea" rows="10" placeholder="Enter disclaimer text"></textarea>
+        </div>
+        <div class="modal-buttons">
+          <button id="saveDisclaimerBtn">Save</button>
+        </div>
+      </div>
     </div>
-    <div class="modal-buttons">
-      <button id="saveDisclaimerBtn">Save</button>
-    </div>
-  </div>
-</div>
 
-
-    <!-- Notification area -->
-    <div id="notification" class="notification"></div>
-
-    <!-- 
-      Load your splitted JS in the correct order:
-      uniqueKeys.js, dataHelpers.js, modalHelpers.js, createComponent.js, mainFormBuilder.js
-    -->
+    <!-- Script includes -->
     <script src="/js/uniqueKeys.js"></script>
     <script src="/js/dataHelpers.js"></script>
     <script src="/js/modalHelpers.js"></script>
@@ -285,8 +264,6 @@ router.get('/formbuilder', (req, res) => {
   </body>
   </html>
   `;
-
-  // Send the composed HTML
   res.send(html);
 });
 

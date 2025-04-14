@@ -22,83 +22,52 @@ let currentSelectedComponentPath = null;
 let selectedComponentType = null;
 
 /**
-* Return all sub-components recursively, including those in columns.
+* Return all sub-components recursively.
+* (Removed all "columns" references entirely.)
 */
 function getAllComponents(components) {
-let result = [];
-components.forEach(comp => {
-  if (comp.key) {
-    result.push(comp);
-  }
-  if (comp.components && comp.components.length > 0) {
-    result = result.concat(getAllComponents(comp.components));
-  }
-  if (comp.type === "columns" && comp.columns && comp.columns.length > 0) {
-    comp.columns.forEach(col => {
-      if (col.components && col.components.length > 0) {
-        result = result.concat(getAllComponents(col.components));
-      }
-    });
-  }
-});
-return result;
+  let result = [];
+  components.forEach(comp => {
+    if (comp.key) {
+      result.push(comp);
+    }
+    if (comp.components && comp.components.length > 0) {
+      result = result.concat(getAllComponents(comp.components));
+    }
+  });
+  return result;
 }
+
 
 /**
 * Find a fieldset or editgrid by key, recursively.
 * We treat both "fieldset" and "editgrid" as containers.
 */
 function findFieldsetByKey(components, key) {
-for (let comp of components) {
-  // Now treat "editgrid" like a container too:
-  if ((comp.type === "fieldset" || comp.type === "editgrid") && comp.key === key) {
-    return comp;
+  for (let comp of components) {
+    if ((comp.type === "fieldset" || comp.type === "editgrid") && comp.key === key) {
+      return comp;
+    }
+    if (comp.components && comp.components.length > 0) {
+      const found = findFieldsetByKey(comp.components, key);
+      if (found) return found;
+    }
   }
-  if (comp.components && comp.components.length > 0) {
-    const found = findFieldsetByKey(comp.components, key);
-    if (found) return found;
-  }
-}
-return null;
+  return null;
 }
 
 /**
 * Remove a component from the current fieldset or from root.
 */
 function removeComponentAtPath(path) {
-let targetArray;
-if (selectedFieldsetKey === "root") {
-  targetArray = formJSON.components;
-} else {
-  const fieldset = findFieldsetByKey(formJSON.components, selectedFieldsetKey);
-  targetArray = fieldset ? fieldset.components : [];
-}
-const index = Number(path);
-targetArray.splice(index, 1);
-updatePreview();
-}
-
-/**
-* Find a columns component by key, recursively.
-*/
-function findColumnsByKey(components, columnsKey) {
-for (let comp of components) {
-    console.log("Checking Component:", comp.key, comp.type); 
-    if (comp.type === 'columns' && comp.key === columnsKey) {
-        return comp;
-    }
-    if (comp.components && comp.components.length > 0) {
-        const found = findColumnsByKey(comp.components, columnsKey);
-        if (found) return found;
-    }
-    if (comp.type === 'columns' && comp.columns) {
-        for (let col of comp.columns) {
-            if (col.components && col.components.length > 0) {
-                const foundCol = findColumnsByKey(col.components, columnsKey);
-                if (foundCol) return foundCol;
-            }
-        }
-    }
-}
-return null;
+  let targetArray;
+  if (selectedFieldsetKey === "root") {
+    targetArray = formJSON.components;
+  } else {
+    const fieldset = findFieldsetByKey(formJSON.components, selectedFieldsetKey);
+    targetArray = fieldset ? fieldset.components : [];
+  }
+  const index = Number(path);
+  targetArray.splice(index, 1);
+  updatePreview();
 }

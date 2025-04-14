@@ -29,3 +29,5 @@ function updateUniqueKey(oldKey, newLabel) {
   delete usedKeys[oldKey];
   return generateUniqueKey(newLabel);
 }
+window.generateUniqueKey = generateUniqueKey;
+window.updateUniqueKey = updateUniqueKey;

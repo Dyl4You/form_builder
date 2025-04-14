@@ -12,11 +12,10 @@ function createOverlay(zIndex) {
   return overlay;
 }
 
-// New functions to retrieve survey questions and options tags
+// If you rely on getSurveyQuestions / getSurveyOptions, keep them:
 function getSurveyQuestions() {
   const container = document.getElementById("surveyQuestionsTagContainerUnified");
   if (!container) return [];
-  // Collect text of all tags inside the container
   return Array.from(container.querySelectorAll('.tag-bubble')).map(tag => tag.textContent.trim());
 }
 
@@ -27,23 +26,10 @@ function getSurveyOptions() {
 }
 
 /**************************************************************
- *  Notification Helper
- **************************************************************/
-function showNotification(message) {
-  const notif = document.getElementById('notification');
-  if (!notif) return;
-  notif.textContent = message;
-  notif.classList.add('show');
-  setTimeout(() => {
-    notif.classList.remove('show');
-  }, 3000);
-}
-
-/**************************************************************
  *  Conditional Logic Modals
  **************************************************************/
 function openConditionalModal(relativePath) {
-  // close the "component options" modal
+  // If the user was in the old "component options" modal, close it
   closeComponentOptionsModal();
 
   const modal = document.getElementById("conditionalModal");
@@ -63,15 +49,12 @@ function openConditionalModal(relativePath) {
     return;
   }
 
-  // Check for existing conditional so we can pre-fill or start fresh
   const existingConditional = targetComponent.conditional || null;
   let selectedKey = existingConditional ? existingConditional.when : null;
   let selectedValue = existingConditional ? existingConditional.eq : null;
 
-  // Populate the "Triggering Component" cards
   populateTriggeringComponentCards(selectedKey);
 
-  // If we already have a known when, populate trigger value cards
   if (selectedKey) {
     const allComps = getAllComponents(formJSON.components);
     const whenComp = allComps.find(c => c.key === selectedKey);
@@ -79,11 +62,8 @@ function openConditionalModal(relativePath) {
       populateTriggerValueCards(whenComp, selectedValue);
     }
   } else {
-    // brand new => clear eqValueCards
     const eqValueContainer = document.getElementById("eqValueCards");
-    if (eqValueContainer) {
-      eqValueContainer.innerHTML = "";
-    }
+    if (eqValueContainer) eqValueContainer.innerHTML = "";
   }
 
   const saveBtn = document.getElementById("saveConditionalLogicBtn");
@@ -105,7 +85,7 @@ function openConditionalModal(relativePath) {
         return;
       }
 
-      // Save the new conditional on the target component
+      // Save event for conditional logic:
       targetComponent.conditional = {
         when: whenKey,
         eq: eqValue,
@@ -123,7 +103,6 @@ function openConditionalModal(relativePath) {
       delete targetComponent.conditional;
       closeConditionalModal();
       updatePreview();
-      showNotification("Conditional logic cleared!");
     };
   }
 
@@ -146,55 +125,40 @@ function closeConditionalModal() {
 }
 
 /**
- * Populate the possible "Triggering Component" cards
- * and pre-select 'selectedKey' if provided (editing an existing condition).
+ * Populate possible "Triggering Component" cards
  */
 function populateTriggeringComponentCards(selectedKey = null) {
   const container = document.getElementById("whenKeyCards");
   if (!container) return;
   container.innerHTML = "";
 
-  // Which types can be triggers?
   const allowedTypes = ["select", "selectboxes", "radio"];
-  const allComponents = getAllComponents(formJSON.components)
-    .filter(c => allowedTypes.includes(c.type));
+  const allComponentsList = getAllComponents(formJSON.components).filter(c => allowedTypes.includes(c.type));
 
-  allComponents.forEach(component => {
+  allComponentsList.forEach(component => {
     const card = document.createElement("div");
     card.classList.add("card", "conditional-trigger-card");
     card.textContent = component.label;
     card.setAttribute("data-key", component.key);
 
-    // Pre-select if existing condition
     if (selectedKey && component.key === selectedKey) {
       card.classList.add("selected");
     }
 
     card.addEventListener("click", () => {
-      // Unselect all
-      document.querySelectorAll("#whenKeyCards .card")
-        .forEach(x => x.classList.remove("selected"));
+      document.querySelectorAll("#whenKeyCards .card").forEach(x => x.classList.remove("selected"));
       card.classList.add("selected");
-
-      // Clear eqValue
       const eqValueContainer = document.getElementById("eqValueCards");
       eqValueContainer.innerHTML = "";
-
-      // Repopulate
       populateTriggerValueCards(component, null);
     });
     container.appendChild(card);
   });
 }
 
-/**
- * Given a selected component, populate the possible "Trigger Value" cards.
- * If 'existingEqValue' is provided, we highlight that card.
- */
 function populateTriggerValueCards(selectedComponent, existingEqValue = null) {
   const container = document.getElementById("eqValueCards");
   if (!container) return;
-
   container.innerHTML = "";
 
   let valuesArray = [];
@@ -215,8 +179,7 @@ function populateTriggerValueCards(selectedComponent, existingEqValue = null) {
     }
 
     card.addEventListener("click", () => {
-      document.querySelectorAll("#eqValueCards .card")
-        .forEach(x => x.classList.remove("selected"));
+      document.querySelectorAll("#eqValueCards .card").forEach(x => x.classList.remove("selected"));
       card.classList.add("selected");
     });
 
@@ -232,7 +195,6 @@ function openInputModal(callback, initialValue = "", backCallback) {
   const overlay = document.getElementById("overlay");
   if (!modal || !overlay) return;
 
-  // Add super-nested class for higher stacking
   modal.classList.add("super-top");
   overlay.classList.add("super-top");
 
@@ -287,11 +249,11 @@ function closeInputModal() {
   const overlay = document.getElementById("overlay");
   if (modal) {
     modal.style.display = "none";
-    modal.classList.remove("super-nested");
+    modal.classList.remove("super-top");
   }
   if (overlay) {
     overlay.style.display = "none";
-    overlay.classList.remove("super-nested");
+    overlay.classList.remove("super-top");
   }
 }
 
@@ -307,7 +269,7 @@ function dictateLabelAdvanced() {
   let currentText = "";
 
   recognition.onstart = () => {
-    showNotification("Listening in advanced mode... say your text or say 'Replace X with Y'.");
+    showNotification("Listening in advanced mode... say 'Replace X with Y', or just speak text.");
   };
 
   recognition.onresult = (event) => {
@@ -326,7 +288,7 @@ function dictateLabelAdvanced() {
         showNotification(`Replaced "${oldString}" with "${newString}"`);
       } else {
         currentText += " " + transcript;
-        // Title-case as example
+        // Title-case example
         currentText = currentText.replace(/\b\w+/g, (word) =>
           word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
         );
@@ -360,12 +322,11 @@ function openOptionsModal(callback, initialTags = [], extraClass = "") {
   const container = document.getElementById("optionsTagContainer");
   let input = document.getElementById("optionTagInput");
 
-  // Clone the input to reset
+  // Clone to reset
   const newInput = input.cloneNode(true);
   input.parentNode.replaceChild(newInput, input);
   input = newInput;
 
-  // Clear old tags
   container.querySelectorAll('.tag-bubble').forEach(tag => tag.remove());
   input.value = "";
 
@@ -393,7 +354,9 @@ function closeOptionsModal(extraClass = "") {
   }
   if (overlay) {
     overlay.style.display = "none";
-    if (extraClass) overlay.classList.remove(extraClass);
+    if (extraClass) {
+      overlay.classList.remove(extraClass);
+    }
   }
 }
 
@@ -411,7 +374,6 @@ function setupOptionsTagInput(input, container, initialTags = []) {
     container.insertBefore(tag, input);
   }
 
-  // Prepopulate
   tags.forEach(tagLabel => createTag(tagLabel));
 
   input.addEventListener("keydown", (e) => {
@@ -463,12 +425,10 @@ function openSurveyQuestionsModal(callback, initialQuestions = [], extraClass = 
         return;
       }
       closeSurveyQuestionsModal(extraClass);
-      callback(
-        currentTags.map(q => ({
-          label: q,
-          value: _.camelCase(q)
-        }))
-      );
+      callback(currentTags.map(q => ({
+        label: q,
+        value: _.camelCase(q)
+      })));
     };
   }
 }
@@ -524,12 +484,10 @@ function openSurveyOptionsModal(callback, initialOptions = [], extraClass = "") 
         return;
       }
       closeSurveyOptionsModal(extraClass);
-      callback(
-        currentTags.map(opt => ({
-          label: opt,
-          value: _.camelCase(opt)
-        }))
-      );
+      callback(currentTags.map(opt => ({
+        label: opt,
+        value: _.camelCase(opt)
+      })));
     };
   }
 }
@@ -583,27 +541,8 @@ function setupSurveyTagInput(container, input, initialTags = []) {
 }
 
 /**************************************************************
- *  Functions to close "Component Options" modal
+ *  "Component Options" Modal Closing
  **************************************************************/
-function closeColumnComponentsModal() {
-  const modal = document.getElementById("columnComponentsModal");
-  const overlay = document.getElementById("overlay");
-
-  if (modal) {
-    modal.style.display = "none";
-    modal.classList.remove("nested");
-  }
-
-  if (overlay) {
-    const openNestedModals = document.querySelectorAll('.modal.nested');
-    if (openNestedModals.length === 0) {
-      overlay.style.display = "none";
-    }
-    overlay.classList.remove("nested");
-  }
-}
-window.closeColumnComponentsModal = closeColumnComponentsModal;
-
 function closeComponentOptionsModal() {
   const modal = document.getElementById("componentOptionsModal");
   const overlay = document.getElementById("overlay");
@@ -616,18 +555,6 @@ function closeComponentOptionsModal() {
 }
 window.closeComponentOptionsModal = closeComponentOptionsModal;
 
-function closeColumnsModal() {
-  const modal = document.getElementById("columnsModal");
-  const overlay = document.getElementById("overlay");
-  if (modal) {
-    modal.style.display = "none";
-  }
-  if (overlay) {
-    overlay.style.display = "none";
-  }
-}
-window.closeColumnsModal = closeColumnsModal;
-
 /**************************************************************
  *  Disclaimer Modal
  **************************************************************/
@@ -635,7 +562,7 @@ function openDisclaimerModal(callback, initialContent = "", extraClass = "") {
   const modal = document.getElementById("disclaimerModal");
   const overlay = document.getElementById("overlay");
   if (!modal || !overlay) {
-    console.error("Disclaimer modal or overlay not found in the DOM!");
+    console.error("Disclaimer modal or overlay not found!");
     return;
   }
 
@@ -690,7 +617,7 @@ function stripHtmlTags(html) {
 }
 
 /**************************************************************
- *  Unified Label & Options Modal (UPDATED with Hide Label toggle)
+ *  Unified Label & Options Modal
  **************************************************************/
 function openLabelOptionsModal(
   callback,
@@ -700,41 +627,37 @@ function openLabelOptionsModal(
   initialDisclaimer = "",
   initialSurveyQuestions = [],
   initialSurveyOptions = [],
-  initialHideLabel = false
+  initialHideLabel = false,
+  initialRows
 ) {
   const modal = document.getElementById("labelOptionsModal");
-  if (!modal) return;
+  if (!modal) {
+    showNotification("Missing #labelOptionsModal in DOM!");
+    return;
+  }
 
-  // Create a new overlay for this modal with desired z-index
+  // Create a new overlay
   const overlay = createOverlay(1999);
   modal.classList.add("super-top");
 
-  // Show/hide sections based on component type
+  // Show/hide sections depending on type
   document.getElementById("optionsSection").style.display =
-    (["radio", "select", "selectboxes"].includes(type)) ? "block" : "none";
+    ["radio", "select", "selectboxes"].includes(type) ? "block" : "none";
+
   document.getElementById("disclaimerSection").style.display =
     (type === "disclaimer") ? "block" : "none";
+
   document.getElementById("surveySection").style.display =
     (type === "survey") ? "block" : "none";
 
-  // Set initial component label
   const labelInput = document.getElementById("labelOptionsLabelInput");
-  labelInput.value = initialLabel;
+  labelInput.value = initialLabel || "";
 
-  // If it's a disclaimer, set the text
-  if (type === "disclaimer") {
-    const disclaimerTA = document.getElementById("disclaimerTextAreaUnified");
-    if (disclaimerTA) {
-      disclaimerTA.value = initialDisclaimer;
-    }
-  }
-
-  // HIDE LABEL Toggle
+  // The Hide Label toggle
   const hideLabelSection = document.getElementById("hideLabelSection");
   const hideLabelToggle = document.getElementById("hideLabelToggle");
   if (hideLabelSection) {
     if (type === "fieldset") {
-      // Fieldsets can't hide label, so hide the toggle
       hideLabelSection.style.display = "none";
     } else {
       hideLabelSection.style.display = "block";
@@ -744,74 +667,151 @@ function openLabelOptionsModal(
     }
   }
 
-  // For radio/select/selectboxes
-  let getTags;
-  if (["radio", "select", "selectboxes"].includes(type)) {
-    const container = document.getElementById("optionsTagContainerUnified");
-    container.querySelectorAll('.tag-bubble').forEach(tag => tag.remove());
-    let input = document.getElementById("optionTagInputUnified");
-    const newInput = input.cloneNode(true);
-    input.parentNode.replaceChild(newInput, input);
-    newInput.value = "";
-    getTags = setupOptionsTagInput(newInput, container, initialOptions.map(o => o.label || ""));
+  // The Row 1 / Row 3 buttons (for textarea)
+  const row1Btn = document.getElementById("row1Btn");
+  const row3Btn = document.getElementById("row3Btn");
+  // Use the provided initialRows value
+  let selectedTextareaRows = initialRows;
+
+  if (type === "textarea") {
+    if (row1Btn) {
+      row1Btn.style.display = "inline-flex";
+      // Pre-select based on initialRows
+      if (initialRows === 1) {
+        row1Btn.classList.add("selected");
+      } else {
+        row1Btn.classList.remove("selected");
+      }
+      row1Btn.onclick = () => {
+        // Toggle off if already selected
+        if (row1Btn.classList.contains("selected")) {
+          row1Btn.classList.remove("selected");
+          selectedTextareaRows = undefined;
+        } else {
+          selectedTextareaRows = 1;
+          row1Btn.classList.add("selected");
+          if (row3Btn) row3Btn.classList.remove("selected");
+        }
+      };
+    }
+    if (row3Btn) {
+      row3Btn.style.display = "inline-flex";
+      if (initialRows === 3) {
+        row3Btn.classList.add("selected");
+      } else {
+        row3Btn.classList.remove("selected");
+      }
+      row3Btn.onclick = () => {
+        if (row3Btn.classList.contains("selected")) {
+          row3Btn.classList.remove("selected");
+          selectedTextareaRows = undefined;
+        } else {
+          selectedTextareaRows = 3;
+          row3Btn.classList.add("selected");
+          if (row1Btn) row1Btn.classList.remove("selected");
+        }
+      };
+    }
+  } else {
+    if (row1Btn) {
+      row1Btn.style.display = "none";
+      row1Btn.classList.remove("selected");
+    }
+    if (row3Btn) {
+      row3Btn.style.display = "none";
+      row3Btn.classList.remove("selected");
+    }
   }
 
-  // For surveys
-  let getSurveyQuestionsFn, getSurveyOptionsFn;
-  if (type === "survey") {
-    // Questions
-    const surveyQContainer = document.getElementById("surveyQuestionsTagContainerUnified");
-    let surveyQInput = document.getElementById("surveyQuestionTagInputUnified");
-    const newSurveyQInput = surveyQInput.cloneNode(true);
-    surveyQInput.parentNode.replaceChild(newSurveyQInput, surveyQInput);
-    newSurveyQInput.value = "";
-    surveyQContainer.querySelectorAll('.tag-bubble').forEach(tag => tag.remove());
-    getSurveyQuestionsFn = setupSurveyTagInput(surveyQContainer, newSurveyQInput, initialSurveyQuestions);
+  // For radio/select/selectboxes => fill bulkOptionsInputUnified
+  const bulkOptionsInput = document.getElementById("bulkOptionsInputUnified");
+  if (bulkOptionsInput) {
+    if (["radio", "select", "selectboxes"].includes(type)) {
+      const existingLabels = initialOptions.map(o => o.label || "").filter(Boolean);
+      bulkOptionsInput.value = existingLabels.join("\n");
+    } else {
+      bulkOptionsInput.value = "";
+    }
+  }
 
-    // Options
-    const surveyOContainer = document.getElementById("surveyOptionsTagContainerUnified");
-    let surveyOInput = document.getElementById("surveyOptionTagInputUnified");
-    const newSurveyOInput = surveyOInput.cloneNode(true);
-    surveyOInput.parentNode.replaceChild(newSurveyOInput, surveyOInput);
-    newSurveyOInput.value = "";
-    surveyOContainer.querySelectorAll('.tag-bubble').forEach(tag => tag.remove());
-    getSurveyOptionsFn = setupSurveyTagInput(surveyOContainer, newSurveyOInput, initialSurveyOptions);
+  // Disclaimer text
+  const disclaimTA = document.getElementById("disclaimerTextAreaUnified");
+  if (disclaimTA) {
+    disclaimTA.value = (type === "disclaimer") ? initialDisclaimer : "";
+  }
+
+  // Survey => two textareas
+  const surveyQuestionsTA = document.getElementById("surveyQuestionsInputUnified");
+  const surveyOptionsTA = document.getElementById("surveyOptionsInputUnified");
+  if (type === "survey") {
+    if (surveyQuestionsTA) {
+      const questions = (initialSurveyQuestions || []).map(q => q.label || q).filter(Boolean);
+      surveyQuestionsTA.value = questions.join("\n");
+    }
+    if (surveyOptionsTA) {
+      const opts = (initialSurveyOptions || []).map(o => o.label || o).filter(Boolean);
+      surveyOptionsTA.value = opts.join("\n");
+    }
+  } else {
+    if (surveyQuestionsTA) surveyQuestionsTA.value = "";
+    if (surveyOptionsTA) surveyOptionsTA.value = "";
   }
 
   modal._currentOverlay = overlay;
   modal.style.display = "block";
   overlay.style.display = "block";
 
-  // SAVE
+  // “Save” button
   const saveBtn = document.getElementById("labelOptionsModalSaveBtn");
   if (saveBtn) {
     saveBtn.onclick = () => {
       const finalLabel = labelInput.value.trim();
-
-      // Collect relevant data from the modal
       let finalOptions = [];
       let finalDisclaimer = "";
       let finalSurveyQuestions = [];
       let finalSurveyOptions = [];
 
-      if (["radio", "select", "selectboxes"].includes(type) && getTags) {
-        finalOptions = getTags().map(opt => ({ label: opt }));
+      // If radio/select/selectboxes => parse
+      if (["radio", "select", "selectboxes"].includes(type) && bulkOptionsInput) {
+        const raw = bulkOptionsInput.value.trim();
+        const splitted = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        finalOptions = splitted.map(val => ({
+          label: val,
+          value: _.camelCase(val)
+        }));
       }
-      if (type === "disclaimer") {
-        const disclaimTA = document.getElementById("disclaimerTextAreaUnified");
-        if (disclaimTA) {
-          finalDisclaimer = disclaimTA.value.trim();
-        }
+
+      // If disclaimer
+      if (type === "disclaimer" && disclaimTA) {
+        finalDisclaimer = disclaimTA.value.trim();
       }
+
+      // If survey
       if (type === "survey") {
-        finalSurveyQuestions = getSurveyQuestionsFn ? getSurveyQuestionsFn() : [];
-        finalSurveyOptions = getSurveyOptionsFn ? getSurveyOptionsFn() : [];
+        if (surveyQuestionsTA) {
+          const rawQuestions = surveyQuestionsTA.value.trim();
+          const splittedQ = rawQuestions.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+          finalSurveyQuestions = splittedQ.map(q => ({
+            label: q,
+            value: _.camelCase(q)
+          }));
+        }
+        if (surveyOptionsTA) {
+          const rawOpts = surveyOptionsTA.value.trim();
+          const splittedO = rawOpts.split(/\r?\n|,/).map(s => s.trim()).filter(Boolean);
+          finalSurveyOptions = splittedO.map(o => ({
+            label: o,
+            value: _.camelCase(o)
+          }));
+        }
       }
 
       let finalHideLabel = false;
       if (hideLabelSection && hideLabelSection.style.display !== "none") {
         finalHideLabel = hideLabelToggle ? hideLabelToggle.checked : false;
       }
+
+      const finalRows = (type === "textarea") ? (selectedTextareaRows || 1) : undefined;
 
       closeLabelOptionsModal();
       callback(
@@ -820,7 +820,8 @@ function openLabelOptionsModal(
         finalDisclaimer,
         finalSurveyQuestions,
         finalSurveyOptions,
-        finalHideLabel
+        finalHideLabel,
+        finalRows
       );
     };
   }
@@ -828,24 +829,14 @@ function openLabelOptionsModal(
 
 function closeLabelOptionsModal() {
   const modal = document.getElementById("labelOptionsModal");
-  if (!modal) {
-    console.log("Modal not found!");
-    return;
-  }
-  console.log("Closing Label Options Modal");
+  if (!modal) return;
   modal.style.display = "none";
   modal.classList.remove("super-top", "super-nested2", "super-nested3");
-
-  const typeContainer = document.getElementById("componentTypeContainer");
-  if (typeContainer) {
-    const cards = typeContainer.querySelectorAll(".card");
-    cards.forEach((card) => card.classList.remove("selected"));
-  }
 
   if (modal._currentOverlay) {
     modal._currentOverlay.remove();
     modal._currentOverlay = null;
   }
-  console.log("Modal display after closing:", modal.style.display);
 }
+
 
