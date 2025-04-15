@@ -94,7 +94,7 @@ router.get('/formbuilder', (req, res) => {
             <label>Options (one per line or comma-separated):</label>
             <textarea
               id="bulkOptionsInputUnified"
-              placeholder="Ex: Option 1\\nOption 2\\nOption 3"
+              placeholder=""
               style="width: 100%; height: 100px;"
             ></textarea>
           </div>
@@ -115,14 +115,14 @@ router.get('/formbuilder', (req, res) => {
             <label>Survey Questions</label>
             <textarea
               id="surveyQuestionsInputUnified"
-              placeholder="Q1\\nQ2\\nQ3"
+              placeholder=""
               style="width: 100%; height: 100px;"
             ></textarea>
 
             <label style="margin-top: 15px;">Survey Options</label>
             <textarea
               id="surveyOptionsInputUnified"
-              placeholder="Option 1\\nOption 2\\nOption 3"
+              placeholder=""
               style="width: 100%; height: 100px;"
             ></textarea>
           </div>
