@@ -112,14 +112,14 @@ router.get('/formbuilder', (req, res) => {
 
           <!-- Survey Section -->
           <div id="surveySection" style="display: none; margin-top: 15px;">
-            <label>Survey Questions (one per line or comma-separated):</label>
+            <label>Survey Questions</label>
             <textarea
               id="surveyQuestionsInputUnified"
               placeholder="Q1\\nQ2\\nQ3"
               style="width: 100%; height: 100px;"
             ></textarea>
 
-            <label style="margin-top: 15px;">Survey Options (one per line or comma-separated):</label>
+            <label style="margin-top: 15px;">Survey Options</label>
             <textarea
               id="surveyOptionsInputUnified"
               placeholder="Option 1\\nOption 2\\nOption 3"
@@ -194,7 +194,7 @@ router.get('/formbuilder', (req, res) => {
         </div>
         <div class="modal-body">
           <div id="surveyQuestionsTagContainer" class="tag-container">
-            <input id="surveyQuestionTagInput" type="text" placeholder="Type question and press comma or enter" />
+            <input id="surveyQuestionTagInput" type="text" placeholder="" />
           </div>
         </div>
         <div class="modal-buttons">
@@ -212,7 +212,7 @@ router.get('/formbuilder', (req, res) => {
         </div>
         <div class="modal-body">
           <div id="surveyOptionsTagContainer" class="tag-container">
-            <input id="surveyOptionTagInput" type="text" placeholder="Type option and press comma or enter" />
+            <input id="surveyOptionTagInput" type="text" placeholder="Paste in bulk text then fomrat if needed" />
           </div>
         </div>
         <div class="modal-buttons">
@@ -230,7 +230,7 @@ router.get('/formbuilder', (req, res) => {
         </div>
         <div class="modal-body">
           <div id="optionsTagContainer" class="tag-container">
-            <input id="optionTagInput" type="text" placeholder="Type option and press comma or enter" />
+            <input id="optionTagInput" type="text" placeholder="Type in options" />
           </div>
         </div>
         <div class="modal-buttons">
