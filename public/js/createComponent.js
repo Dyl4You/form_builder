@@ -87,9 +87,9 @@
     
       outerComp.components.push(innerComp);
       return outerComp;
-    }
+    }    
     else if (type === 'editgrid') {
-      // An Edit Grid snippet:
+      // Your exact Edit Grid JSON snippet:
       baseComp = {
         label: finalLabel,
         labelWidth: 30,
@@ -273,7 +273,7 @@
         type: "editgrid",
         displayAsTable: false,
         input: true,
-        components: []
+        components: [] 
       };
     }
     else if (type === 'radio') {
@@ -490,6 +490,110 @@
     }
 
     return baseComp;
+  }
+
+
+  function handleDisclaimerComponent(component, compIndex) {
+    openLabelOptionsModal(
+      (newLabel, updatedOptions, disclaimText, sQ, sO, hideLbl) => {
+        component.html = disclaimText || "";
+        component.label = newLabel;
+        component.hideLabel = !!hideLbl;
+        updatePreview();
+        // removed notification
+        openComponentOptionsModalForColumn(compIndex);
+      },
+      "disclaimer",
+      component.label || "",
+      [],
+      component.html || "",
+      [],
+      [],
+      component.hideLabel || false
+    );
+  }
+
+  function handleSurveyComponent(component, compIndex) {
+    openLabelOptionsModal(
+      (finalLabel, finalOpts, finalDisclaimer, finalSurveyQs, finalSurveyOpts, finalHideLabel) => {
+        component.label = finalLabel;
+        component.labelWidth = 30;
+        component.labelMargin = 3;
+        component.hideLabel = !!finalHideLabel;
+        component.tableView = true;
+        component.reportable = true;
+        component.validate = { required: true };
+        component.type = "survey";
+        component.input = true;
+        component.questions = finalSurveyQs.map(item => ({
+          label: item.label,
+          value: item.value,
+          tooltip: ""
+        }));
+        component.values = finalSurveyOpts.map(item => ({
+          label: item.label,
+          value: item.value,
+          tooltip: "",
+          flag: ""
+        }));
+        updatePreview();
+        // removed notification
+        openComponentOptionsModalForColumn(compIndex);
+      },
+      "survey",
+      component.label || "",
+      [],
+      "",
+      component.questions || [],
+      component.values || [],
+      component.hideLabel || false
+    );
+  }
+
+  function handleOptionComponent(component, compIndex) {
+    const currentOptions = component.type === "select"
+      ? (component.data?.values || [])
+      : (component.values || []);
+    openLabelOptionsModal(
+      (newLabel, updatedOptions, disclaim, sQ, sO, finalHideLabel) => {
+        component.label = newLabel;
+        component.hideLabel = !!finalHideLabel;
+        if (component.type === "select") {
+          component.data.values = ensureUniqueValues(updatedOptions);
+        } else {
+          component.values = ensureUniqueValues(updatedOptions);
+        }
+        updatePreview();
+        // removed notification
+        openComponentOptionsModalForColumn(compIndex);
+      },
+      component.type,
+      component.label || "",
+      currentOptions,
+      "",
+      [],
+      [],
+      component.hideLabel || false
+    );
+  }
+
+  function handleGenericComponent(component, compIndex) {
+    openLabelOptionsModal(
+      (label, opts, disclaim, sQ, sO, hideLbl) => {
+        component.label = label;
+        component.hideLabel = !!hideLbl;
+        updatePreview();
+        // removed notification
+        openComponentOptionsModalForColumn(compIndex);
+      },
+      component.type,
+      component.label || "",
+      [],
+      "",
+      [],
+      [],
+      component.hideLabel || false
+    );
   }
 
   // Expose for CommonJS if available

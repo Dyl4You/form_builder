@@ -628,13 +628,17 @@ function openLabelOptionsModal(
   initialSurveyQuestions = [],
   initialSurveyOptions = [],
   initialHideLabel = false,
-  initialRows
+  initialRequired = true,
+  initialRows,
+  initialDTMode = "datetime"
 ) {
   const modal = document.getElementById("labelOptionsModal");
+  let selectedDTMode = initialDTMode || "datetime";
   if (!modal) {
     showNotification("Missing #labelOptionsModal in DOM!");
     return;
   }
+
 
   // Create a new overlay
   const overlay = createOverlay(1999);
@@ -642,13 +646,20 @@ function openLabelOptionsModal(
 
   // Show/hide sections depending on type
   document.getElementById("optionsSection").style.display =
-    ["radio", "select", "selectboxes"].includes(type) ? "block" : "none";
+    ["radio", "select", "selectboxes", "choiceList"].includes(type) ? "block" : "none";
 
   document.getElementById("disclaimerSection").style.display =
     (type === "disclaimer") ? "block" : "none";
 
   document.getElementById("surveySection").style.display =
     (type === "survey") ? "block" : "none";
+
+  document.getElementById("dateTimeModeContainer").style.display =
+    type === "datetime" ? "block" : "none";
+
+  
+  document.getElementById("rowButtonsContainer").style.display =
+    type === "textarea" ? "block" : "none";
 
   const labelInput = document.getElementById("labelOptionsLabelInput");
   labelInput.value = initialLabel || "";
@@ -666,6 +677,46 @@ function openLabelOptionsModal(
       }
     }
   }
+
+  const requiredToggle = document.getElementById("requiredToggle");
+  const togglesRow     = document.getElementById("togglesRow"); 
+
+  if (togglesRow) {
+    if (type === "fieldset") {
+      togglesRow.style.display = "none";
+    } else {
+      togglesRow.style.display = "flex";
+      if (requiredToggle) requiredToggle.checked = !!initialRequired;
+    }
+  }
+
+  // ----- Choice‑List style buttons -----
+  const listStyleContainer = document.getElementById("listStyleContainer");
+  let selectedListStyle = "select";                     // default
+  
+  if (type === "choiceList" || ["select","radio","selectboxes"].includes(type)) {
+    listStyleContainer.style.display = "block";
+    const lsSelect       = document.getElementById("lsSelect");
+    const lsRadio        = document.getElementById("lsRadio");
+    const lsSelectboxes  = document.getElementById("lsSelectboxes");
+    const allLS          = [lsSelect, lsRadio, lsSelectboxes];
+    if (["select","radio","selectboxes"].includes(type)) {
+      const current = {select:lsSelect, radio:lsRadio, selectboxes:lsSelectboxes}[type];
+      pickLS(current, type);
+    }
+  
+    function pickLS(btn, val) {
+      allLS.forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      selectedListStyle = val;
+    }
+    lsSelect.onclick      = () => pickLS(lsSelect,      "select");
+    lsRadio.onclick       = () => pickLS(lsRadio,       "radio");
+    lsSelectboxes.onclick = () => pickLS(lsSelectboxes, "selectboxes");
+  } else {
+    listStyleContainer.style.display = "none";
+  }
+
 
   // The Row 1 / Row 3 buttons (for textarea)
   const row1Btn = document.getElementById("row1Btn");
@@ -723,6 +774,29 @@ function openLabelOptionsModal(
     }
   }
 
+  if (type === "datetime") {
+    const btnDT = document.getElementById("dtModeDateTime");
+    const btnD  = document.getElementById("dtModeDate");
+    const btnT  = document.getElementById("dtModeTime");
+    const all   = [btnDT, btnD, btnT];
+  
+    function pick(btn, mode) {
+      all.forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      selectedDTMode = mode;
+    }
+  
+    // preset
+    if (selectedDTMode === "date")      pick(btnD,  "date");
+    else if (selectedDTMode === "time") pick(btnT,  "time");
+    else                                pick(btnDT, "datetime");
+  
+    btnDT.onclick = () => pick(btnDT, "datetime");
+    btnD.onclick  = () => pick(btnD,  "date");
+    btnT.onclick  = () => pick(btnT,  "time");
+  }
+  
+
   // For radio/select/selectboxes => fill bulkOptionsInputUnified
   const bulkOptionsInput = document.getElementById("bulkOptionsInputUnified");
   if (bulkOptionsInput) {
@@ -772,7 +846,7 @@ function openLabelOptionsModal(
       let finalSurveyOptions = [];
 
       // If radio/select/selectboxes => parse
-      if (["radio", "select", "selectboxes"].includes(type) && bulkOptionsInput) {
+      if (["radio", "select", "selectboxes", "choiceList"].includes(type) && bulkOptionsInput) {
         const raw = bulkOptionsInput.value.trim();
         const splitted = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
         finalOptions = splitted.map(val => ({
@@ -812,7 +886,13 @@ function openLabelOptionsModal(
       }
 
       const finalRows = (type === "textarea") ? (selectedTextareaRows || 1) : undefined;
+      const styleOrDT = (["choiceList","select","radio","selectboxes"].includes(type))
+                  ? selectedListStyle           // Dropdown / Radio / Select‑Boxes
+                  : selectedDTMode;             // Date/Time modes
 
+
+      const finalRequired = requiredToggle ? requiredToggle.checked : true;
+           
       closeLabelOptionsModal();
       callback(
         finalLabel,
@@ -821,7 +901,10 @@ function openLabelOptionsModal(
         finalSurveyQuestions,
         finalSurveyOptions,
         finalHideLabel,
-        finalRows
+        finalRequired,
+        finalRows,
+        selectedDTMode,
+        styleOrDT 
       );
     };
   }

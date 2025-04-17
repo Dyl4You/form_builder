@@ -6,10 +6,9 @@ const _ = require('lodash'); // for _.startCase and _.camelCase
 router.get('/formbuilder', (req, res) => {
   // List of component types available in the form builder.
   const componentTypes = [
-    "disclaimer", "textfield", "textarea", "account", "radio", "survey",
+    "disclaimer", "textfield", "textarea", "account", "choiceList", "survey",
     "selectboxes", "select", "file", "phoneNumber",
-    "address", "asset", "datetime", "date", "time",
-    "number", "currency"
+    "address", "asset", "datetime", "number", "currency"
   ];
 
   // Build the HTML for the type cards.
@@ -31,7 +30,7 @@ router.get('/formbuilder', (req, res) => {
   <body>
     <div class="wrapper">
       <div class="container">
-        <h1>Simpler Form Builder</h1> 
+        
              
         <!-- Component Type Section -->
         <label>Component Type:</label>
@@ -91,7 +90,7 @@ router.get('/formbuilder', (req, res) => {
           
           <!-- Options Section (for radio/select/selectboxes) -->
           <div id="optionsSection" style="display: none; margin-top: 15px;">
-            <label>Options (one per line or comma-separated):</label>
+            <label>Options:</label>
             <textarea
               id="bulkOptionsInputUnified"
               placeholder=""
@@ -127,20 +126,51 @@ router.get('/formbuilder', (req, res) => {
             ></textarea>
           </div>
 
-          <div id="hideLabelSection" style="margin-top: 15px; display: none;">
-            <label>Hide Label?</label>
-            <label class="switch" style="margin-left: 10px;">
-              <input type="checkbox" id="hideLabelToggle" />
-              <span class="slider round"></span>
-            </label>
-          </div>
-
-          <div id="rowButtonsContainer" style="margin-top: 15px;">
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-              <button id="row1Btn" class="row-button">Row 1</button>
-              <button id="row3Btn" class="row-button">Row 3</button>
+          <div id="togglesRow" style="margin-top:15px;display:none;display:flex;align-items:center;gap:40px;">
+            <div>
+              <label>Hide Label</label>
+              <label class="switch" style="margin-left:10px;">
+                <input type="checkbox" id="hideLabelToggle">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div>
+              <label>Required</label>
+              <label class="switch" style="margin-left:10px;">
+                <input type="checkbox" id="requiredToggle" checked>
+                <span class="slider round"></span>
+              </label>
             </div>
           </div>
+
+          <div id="rowButtonsContainer" style="margin-top:15px display:none;">
+            <label>Rows</label>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+              <button id="row1Btn" class="row-button">1</button>
+              <button id="row3Btn" class="row-button">3</button>
+            </div>
+          </div>
+          
+
+          <div id="dateTimeModeContainer" style="margin-top:15px; display:none;">
+              <label>Date / Time Mode</label>
+              <div style="display:flex; gap:10px; margin-top:10px;">
+              <button id="dtModeDateTime" class="row-button">Date &amp; Time</button>
+              <button id="dtModeDate"      class="row-button">Date</button>
+              <button id="dtModeTime"      class="row-button">Time</button>
+            </div>
+          </div>
+
+          <!-- List Style buttons (for Choice List) -->
+          <div id="listStyleContainer" style="margin-top:15px; display:none;">
+            <label>List Style</label>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+              <button id="lsSelect"      class="row-button">Dropdown</button>
+              <button id="lsRadio"       class="row-button">Radio</button>
+              <button id="lsSelectboxes" class="row-button">Select Boxes</button>
+            </div>
+          </div>
+
 
           <div class="modal-buttons">
             <button id="labelOptionsModalSaveBtn">Save</button>
@@ -212,7 +242,7 @@ router.get('/formbuilder', (req, res) => {
         </div>
         <div class="modal-body">
           <div id="surveyOptionsTagContainer" class="tag-container">
-            <input id="surveyOptionTagInput" type="text" placeholder="Paste in bulk text then fomrat if needed" />
+            <input id="surveyOptionTagInput" type="text" placeholder="" />
           </div>
         </div>
         <div class="modal-buttons">

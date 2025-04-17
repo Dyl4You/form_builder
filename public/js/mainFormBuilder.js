@@ -94,12 +94,6 @@ function renderComponentCards() {
       case 'datetime':
         prettyType = 'Date / Time';
         break;
-      case 'date':
-        prettyType = 'Date';
-        break;
-      case 'time':
-        prettyType = 'Time';
-        break;
       case 'number':
         prettyType = 'Number';
         break;
@@ -181,6 +175,23 @@ function updateFieldsetCards() {
   fieldsetListEl.innerHTML = html;
 }
 
+function tweakDateTimeMode(comp, mode) {
+  const isDate = mode === "date";
+  const isTime = mode === "time";
+
+  comp.enableTime = !isDate;
+  comp.noCalendar =  isTime;
+  comp.format     =  isTime ? "hh:mm a"
+                  :  isDate ? "yyyy-MM-dd"
+                  :  "yyyy-MM-dd hh:mm a";
+
+  if (comp.widget) {
+    comp.widget.enableTime = !isDate;
+    comp.widget.noCalendar =  isTime;
+    comp.widget.format     =  comp.format;
+  }
+}
+
 /**
  * Update the "Form JSON Preview" <pre> element and also update the component list & fieldset cards.
  */
@@ -236,6 +247,13 @@ function editComponent(pathIndex) {
   let initialOptions = [];
   let initialDisclaimer = "";
   let initialHideLabel = !!comp.hideLabel;
+  let initialDTMode =
+        comp.__mode                         // value saved earlier, if any
+    ?   comp.__mode
+    :   comp.noCalendar        ? "time"
+    : ! comp.enableTime        ? "date"
+    :                            "datetime";
+
 
   // If it's a radio/select/selectboxes => gather current options
   if (["radio", "select", "selectboxes"].includes(comp.type)) {
@@ -268,20 +286,57 @@ function editComponent(pathIndex) {
       sQ,
       sO,
       finalHideLabel,
-      finalRows 
+      finalRequired,
+      finalRows,
+      selectedDTMode,
+      styleOrDT 
     ) => {
       comp.label = newLabel;
       comp.hideLabel = !!finalHideLabel;
       comp.key = updateUniqueKey(comp.key, newLabel);
+      
+      if (!comp.validate) comp.validate = {};
+      comp.validate.required = !!finalRequired;
 
-      // For radio / select / selectboxes
-      if (["radio", "select", "selectboxes"].includes(comp.type)) {
-        if (comp.type === "select") {
-          comp.data.values = ensureUniqueValues(newOpts);
-        } else {
-          comp.values = ensureUniqueValues(newOpts);
-        }
-      }
+     // ----- change Select / Radio / Select‑Boxes style if user switched -----
+if (["select","radio","selectboxes"].includes(comp.type) &&
+["select","radio","selectboxes"].includes(styleOrDT) &&
+styleOrDT !== comp.type) {
+
+// helper
+const cloneVals = arr => arr.map(o => ({...o}));
+
+// move option arrays to / from .data.values as needed
+if (comp.type === "select") {
+comp.values = cloneVals(comp.data?.values || []);
+delete comp.data;
+} else if (!comp.values) {
+comp.values = [];
+}
+
+// common clean‑up
+delete comp.inline;
+delete comp.optionsLabelPosition;
+delete comp.inputType;
+comp.tableView = (styleOrDT === "select");
+
+if (styleOrDT === "select") {            // Switch to Dropdown
+comp.type   = "select";
+comp.widget = "html5";
+comp.data   = { values: cloneVals(comp.values) };
+delete comp.values;
+} else {                                 // Switch to Radio or Select‑Boxes
+comp.type                 = styleOrDT;
+comp.inline               = (styleOrDT === "radio");
+comp.optionsLabelPosition = "right";
+if (styleOrDT === "selectboxes") {
+  comp.inputType  = "checkbox";
+  comp.modalEdit  = true;
+  comp.tableView  = false;
+}
+}
+}
+
 
       // If disclaimer
       if (comp.type === "disclaimer") {
@@ -306,17 +361,24 @@ function editComponent(pathIndex) {
         comp.tableView = true;
       }
 
+      if ((comp.customType || comp.type) === "datetime") {
+  comp.__mode = selectedDTMode;
+  tweakDateTimeMode(comp, selectedDTMode);
+}
+
       updatePreview();
       // No showNotification call
     },
-    comp.type,
+    (comp.customType || comp.type),
     initialLabel,
     initialOptions,
     initialDisclaimer,
     initialSurveyQuestions,
     initialSurveyOptions,
     initialHideLabel,
-    initialRows
+    comp.validate?.required ?? true,
+    initialRows,
+    initialDTMode
   );
 }
 
@@ -422,7 +484,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (addFieldsetBtn) {
     addFieldsetBtn.addEventListener("click", () => {
       openLabelOptionsModal(
-        (label, options, disclaimerText, surveyQuestions, surveyOptions, finalHideLabel) => {
+        (label, options, disclaimerText, surveyQuestions, surveyOptions, finalHideLabel, finalRows, selectedDTMode ) => {
           const cmp = createComponent("fieldset", label, options, finalHideLabel);
           if (selectedFieldsetKey && selectedFieldsetKey !== "root") {
             const fs = findFieldsetByKey(formJSON.components, selectedFieldsetKey);
@@ -434,6 +496,8 @@ document.addEventListener("DOMContentLoaded", () => {
           } else {
             formJSON.components.push(cmp);
           }
+          if (!cmp.validate) cmp.validate = {};
+          cmp.validate.required = !!finalRequired;
           updatePreview();
           // no showNotification
         },
@@ -465,17 +529,13 @@ document.addEventListener("DOMContentLoaded", () => {
     "disclaimer",
     "textarea",
     "account",
-    "radio",
+    "choiceList",
     "survey",
-    "selectboxes",
-    "select",
     "file",
     "phoneNumber",
     "address",
     "asset",
     "datetime",
-    "date",
-    "time",
     "number",
     "currency",
     "editgrid"
@@ -494,7 +554,8 @@ document.addEventListener("DOMContentLoaded", () => {
           .forEach(c => c.classList.remove("selected"));
         e.target.classList.add("selected");
 
-        const chosenType = e.target.getAttribute("data-type");
+        let chosenType = e.target.getAttribute("data-type");
+
         // If the selected fieldset is an editgrid, block certain types
         const fs = findFieldsetByKey(formJSON.components, selectedFieldsetKey);
         if (fs && fs.type === "editgrid") {
@@ -513,8 +574,15 @@ document.addEventListener("DOMContentLoaded", () => {
             surveyQuestions,
             surveyOptions,
             finalHideLabel,
-            finalRows
+            finalRequired,
+            finalRows,
+            selectedDTMode,
+            styleOrDT
           ) => {
+
+            if (chosenType === "choiceList") {
+              chosenType = styleOrDT;           // "select", "radio", or "selectboxes"
+            }
             const cmp = createComponent(chosenType, label, options || [], finalHideLabel);
 
             if (chosenType === "survey") {
@@ -534,6 +602,10 @@ document.addEventListener("DOMContentLoaded", () => {
               cmp.autoExpand = true;
               cmp.reportable = true;
               cmp.tableView = true;
+            }
+            if (chosenType === "datetime") {
+              cmp.__mode = selectedDTMode;
+              tweakDateTimeMode(cmp, selectedDTMode);
             }
 
             // Insert into the chosen container
