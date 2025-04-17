@@ -664,19 +664,20 @@ function openLabelOptionsModal(
   const labelInput = document.getElementById("labelOptionsLabelInput");
   labelInput.value = initialLabel || "";
 
-  // The Hide Label toggle
-  const hideLabelSection = document.getElementById("hideLabelSection");
-  const hideLabelToggle = document.getElementById("hideLabelToggle");
-  if (hideLabelSection) {
-    if (type === "fieldset") {
-      hideLabelSection.style.display = "none";
-    } else {
-      hideLabelSection.style.display = "block";
-      if (hideLabelToggle) {
-        hideLabelToggle.checked = !!initialHideLabel;
-      }
-    }
-  }
+ // --- Hide‑label switch ---
+const hideLabelSection = document.getElementById('hideLabelSection');
+const hideLabelToggle  = document.getElementById('hideLabelToggle');
+
+// Show / hide the whole section
+if (type === 'fieldset') {
+  if (hideLabelSection) hideLabelSection.style.display = 'none';
+} else {
+  if (hideLabelSection) hideLabelSection.style.display = 'block';
+}
+
+/*  <<< key line – always reset the switch >>> */
+if (hideLabelToggle) hideLabelToggle.checked = !!initialHideLabel;
+
 
   const requiredToggle = document.getElementById("requiredToggle");
   const togglesRow     = document.getElementById("togglesRow"); 
@@ -691,31 +692,42 @@ function openLabelOptionsModal(
   }
 
   // ----- Choice‑List style buttons -----
-  const listStyleContainer = document.getElementById("listStyleContainer");
-  let selectedListStyle = "select";                     // default
-  
-  if (type === "choiceList" || ["select","radio","selectboxes"].includes(type)) {
-    listStyleContainer.style.display = "block";
-    const lsSelect       = document.getElementById("lsSelect");
-    const lsRadio        = document.getElementById("lsRadio");
-    const lsSelectboxes  = document.getElementById("lsSelectboxes");
-    const allLS          = [lsSelect, lsRadio, lsSelectboxes];
-    if (["select","radio","selectboxes"].includes(type)) {
-      const current = {select:lsSelect, radio:lsRadio, selectboxes:lsSelectboxes}[type];
-      pickLS(current, type);
-    }
-  
-    function pickLS(btn, val) {
-      allLS.forEach(b => b.classList.remove("selected"));
-      btn.classList.add("selected");
-      selectedListStyle = val;
-    }
-    lsSelect.onclick      = () => pickLS(lsSelect,      "select");
-    lsRadio.onclick       = () => pickLS(lsRadio,       "radio");
-    lsSelectboxes.onclick = () => pickLS(lsSelectboxes, "selectboxes");
-  } else {
-    listStyleContainer.style.display = "none";
+const listStyleContainer = document.getElementById('listStyleContainer');
+let selectedListStyle = null;        // ← nothing selected yet
+
+if (type === 'choiceList' || ['select','radio','selectboxes'].includes(type)) {
+  listStyleContainer.style.display = 'block';
+
+  const lsSelect      = document.getElementById('lsSelect');
+  const lsRadio       = document.getElementById('lsRadio');
+  const lsSelectboxes = document.getElementById('lsSelectboxes');
+  const allLS         = [lsSelect, lsRadio, lsSelectboxes];
+
+  /* 1‑A  reset previous highlights */
+  allLS.forEach(btn => btn.classList.remove('selected'));
+
+  /* 1‑B  if editing an EXISTING component, highlight its current style */
+  if (['select','radio','selectboxes'].includes(type)) {
+    const current = { select: lsSelect, radio: lsRadio, selectboxes: lsSelectboxes }[type];
+    current.classList.add('selected');
+    selectedListStyle = type;
   }
+
+  /* 1‑C  click = pick */
+  function pick(btn, val) {
+    allLS.forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedListStyle = val;
+  }
+
+  lsSelect.onclick      = () => pick(lsSelect,      'select');
+  lsRadio.onclick       = () => pick(lsRadio,       'radio');
+  lsSelectboxes.onclick = () => pick(lsSelectboxes, 'selectboxes');
+
+} else {
+  listStyleContainer.style.display = 'none';
+}
+
 
 
   // The Row 1 / Row 3 buttons (for textarea)
@@ -886,9 +898,9 @@ function openLabelOptionsModal(
       }
 
       const finalRows = (type === "textarea") ? (selectedTextareaRows || 1) : undefined;
-      const styleOrDT = (["choiceList","select","radio","selectboxes"].includes(type))
-                  ? selectedListStyle           // Dropdown / Radio / Select‑Boxes
-                  : selectedDTMode;             // Date/Time modes
+      const styleOrDT = (['choiceList','select','radio','selectboxes'].includes(type))
+      ? (selectedListStyle || 'select')   // ← default to Dropdown if user picked nothing
+      : selectedDTMode;
 
 
       const finalRequired = requiredToggle ? requiredToggle.checked : true;
@@ -920,6 +932,11 @@ function closeLabelOptionsModal() {
     modal._currentOverlay.remove();
     modal._currentOverlay = null;
   }
+
+  document.querySelectorAll("#componentTypeContainer .card")
+          .forEach(card => card.classList.remove("selected"));
+  document.querySelectorAll("#listStyleContainer .row-button")
+          .forEach(btn  => btn.classList.remove("selected"));
 }
 
 

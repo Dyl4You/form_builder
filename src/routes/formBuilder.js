@@ -127,7 +127,7 @@ router.get('/formbuilder', (req, res) => {
           </div>
 
           <div id="togglesRow" style="margin-top:15px;display:none;display:flex;align-items:center;gap:40px;">
-            <div>
+            <div id="hideLabelSection">
               <label>Hide Label</label>
               <label class="switch" style="margin-left:10px;">
                 <input type="checkbox" id="hideLabelToggle">

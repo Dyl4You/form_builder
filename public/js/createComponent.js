@@ -38,11 +38,29 @@
     });
   }
 
+  const DEFAULT_LABELS = {
+    disclaimer : 'Disclaimer',
+    textarea   : 'Text Area',
+    account    : 'Worker',
+    choiceList : 'Choice List',
+    survey     : 'Survey',
+    file       : 'Upload',
+    phoneNumber: 'Phone Number',
+    address    : 'Address',
+    asset      : 'Asset',
+    datetime   : 'Date / Time',
+    number     : 'Number',
+    currency   : 'Currency',
+    editgrid   : 'Edit Grid',
+    fieldset   : 'Grouping'
+  };
+  
+
   /**
    * Builds a brand-new component object.
    */
   function createComponent(type, typedLabel = "", options = [], hideLabelParam = false) {
-    const finalLabel = typedLabel.trim() || ("Untitled " + _.startCase(type));
+    const finalLabel = typedLabel.trim() || DEFAULT_LABELS[type] || _.startCase(type);
     const generatedKey = generateUniqueKey(finalLabel);
 
     let baseComp = {
