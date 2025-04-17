@@ -484,7 +484,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (addFieldsetBtn) {
     addFieldsetBtn.addEventListener("click", () => {
       openLabelOptionsModal(
-        (label, options, disclaimerText, surveyQuestions, surveyOptions, finalHideLabel, finalRows, selectedDTMode ) => {
+        (label, options, disclaimerText, surveyQuestions, surveyOptions, finalHideLabel, finalRows, finalRequired, selectedDTMode ) => {
           const cmp = createComponent("fieldset", label, options, finalHideLabel);
           if (selectedFieldsetKey && selectedFieldsetKey !== "root") {
             const fs = findFieldsetByKey(formJSON.components, selectedFieldsetKey);
