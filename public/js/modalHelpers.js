@@ -728,6 +728,41 @@ if (type === 'choiceList' || ['select','radio','selectboxes'].includes(type)) {
   listStyleContainer.style.display = 'none';
 }
 
+/* ---------- Number / Currency style buttons ---------- */
+const numStyleContainer = document.getElementById('numStyleContainer');
+let selectedNumStyle = null;          // nothing picked yet
+
+if (type === 'number' || type === 'currency') {
+  numStyleContainer.style.display = 'block';
+
+  const nsNumber   = document.getElementById('nsNumber');
+  const nsCurrency = document.getElementById('nsCurrency');
+  const allNS      = [nsNumber, nsCurrency];
+
+  // reset any previous highlight
+  allNS.forEach(b => b.classList.remove('selected'));
+
+  // if editing an existing component, pre‑select its style
+  if (type === 'currency') {
+    nsCurrency.classList.add('selected');
+    selectedNumStyle = 'currency';
+  } else {
+    nsNumber.classList.add('selected');
+    selectedNumStyle = 'number';
+  }
+
+  function pick(btn, val) {
+    allNS.forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedNumStyle = val;
+  }
+
+  nsNumber.onclick   = () => pick(nsNumber,   'number');
+  nsCurrency.onclick = () => pick(nsCurrency, 'currency');
+} else {
+  numStyleContainer.style.display = 'none';
+}
+
 
 
   // The Row 1 / Row 3 buttons (for textarea)
@@ -899,7 +934,9 @@ if (type === 'choiceList' || ['select','radio','selectboxes'].includes(type)) {
 
       const finalRows = (type === "textarea") ? (selectedTextareaRows || 1) : undefined;
       const styleOrDT = (['choiceList','select','radio','selectboxes'].includes(type))
-      ? (selectedListStyle || 'select')   // ← default to Dropdown if user picked nothing
+      ? (selectedListStyle || 'select')   
+      : (type === 'number' || type === 'currency')
+      ? (selectedNumStyle || 'number')
       : selectedDTMode;
 
 
@@ -937,6 +974,10 @@ function closeLabelOptionsModal() {
           .forEach(card => card.classList.remove("selected"));
   document.querySelectorAll("#listStyleContainer .row-button")
           .forEach(btn  => btn.classList.remove("selected"));
+  /* new line – clears Number/Currency buttons */
+  document.querySelectorAll("#numStyleContainer .row-button")
+          .forEach(btn => btn.classList.remove("selected"));
 }
+
 
 

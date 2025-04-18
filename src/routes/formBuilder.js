@@ -171,6 +171,15 @@ router.get('/formbuilder', (req, res) => {
             </div>
           </div>
 
+          <!-- Number style buttons (plain number vs. currency) -->
+          <div id="numStyleContainer" style="margin-top:15px; display:none;">
+            <label>Number Style</label>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+              <button id="nsNumber"   class="row-button">Number</button>
+              <button id="nsCurrency" class="row-button">Currency</button>
+            </div>
+          </div>
+
 
           <div class="modal-buttons">
             <button id="labelOptionsModalSaveBtn">Save</button>
