@@ -512,15 +512,7 @@ document.addEventListener("DOMContentLoaded", () => {
           } else {
             formJSON.components.push(cmp);
           }
-
-          let typeToUse = chosenType;         // chosenType comes from the outer scope
-
-if (typeToUse === "choiceList") {   // select / radio / select‑boxes
-  typeToUse = styleOrDT;
-}
-if (typeToUse === "number") {       // number  ↔  currency
-  typeToUse = styleOrDT;
-}
+          
           if (!cmp.validate) cmp.validate = {};
           cmp.validate.required = !!finalRequired;
           updatePreview();

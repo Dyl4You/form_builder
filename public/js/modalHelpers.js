@@ -953,7 +953,7 @@ if (type === 'number' || type === 'currency') {
         finalRequired,
         finalRows,
         selectedDTMode,
-        styleOrDT 
+        styleOrDT
       );
     };
   }
