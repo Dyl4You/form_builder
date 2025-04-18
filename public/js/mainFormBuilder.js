@@ -512,7 +512,7 @@ document.addEventListener("DOMContentLoaded", () => {
           } else {
             formJSON.components.push(cmp);
           }
-          
+
           if (!cmp.validate) cmp.validate = {};
           cmp.validate.required = !!finalRequired;
           updatePreview();
@@ -607,6 +607,8 @@ document.addEventListener("DOMContentLoaded", () => {
              // -----------------------------------------------------
            
              const cmp = createComponent(typeToUse, label, options || [], finalHideLabel);
+             if (!cmp.validate) cmp.validate = {};
+              cmp.validate.required = !!finalRequired;
            
 
             if (chosenType === "survey") {
