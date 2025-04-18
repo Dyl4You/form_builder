@@ -289,7 +289,7 @@ function editComponent(pathIndex) {
       finalRequired,
       finalRows,
       selectedDTMode,
-      styleOrDT 
+      styleOrMode
     ) => {
       comp.label = newLabel;
       comp.hideLabel = !!finalHideLabel;
@@ -300,8 +300,24 @@ function editComponent(pathIndex) {
 
      // ----- change Select / Radio / Select‑Boxes style if user switched -----
 if (["select","radio","selectboxes"].includes(comp.type) &&
-["select","radio","selectboxes"].includes(styleOrDT) &&
-styleOrDT !== comp.type) {
+["select","radio","selectboxes"].includes(styleOrMode) &&
+styleOrMode !== comp.type) {
+
+/* ---- switch Number <‑‑> Currency if user toggled ---- */
+if ((comp.type === 'number' || comp.type === 'currency') &&
+    (styleOrMode === 'number' || styleOrMode === 'currency') &&
+    styleOrMode !== comp.type) {
+  comp.type = styleOrMode;
+}
+
+let typeToUse = chosenType;         // chosenType comes from the outer scope
+
+if (typeToUse === "choiceList") {   // select / radio / select‑boxes
+  typeToUse = styleOrDT;
+}
+if (typeToUse === "number") {       // number  ↔  currency
+  typeToUse = styleOrDT;
+}
 
 // helper
 const cloneVals = arr => arr.map(o => ({...o}));
@@ -484,7 +500,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (addFieldsetBtn) {
     addFieldsetBtn.addEventListener("click", () => {
       openLabelOptionsModal(
-        (label, options, disclaimerText, surveyQuestions, surveyOptions, finalHideLabel, finalRows, finalRequired, selectedDTMode ) => {
+        (label, options, disclaimerText, surveyQuestions, surveyOptions, finalHideLabel, finalRows, finalRequired, selectedDTMode, styleOrMode, styleChoice  ) => {
           const cmp = createComponent("fieldset", label, options, finalHideLabel);
           if (selectedFieldsetKey && selectedFieldsetKey !== "root") {
             const fs = findFieldsetByKey(formJSON.components, selectedFieldsetKey);
@@ -496,6 +512,15 @@ document.addEventListener("DOMContentLoaded", () => {
           } else {
             formJSON.components.push(cmp);
           }
+
+          let typeToUse = chosenType;         // chosenType comes from the outer scope
+
+if (typeToUse === "choiceList") {   // select / radio / select‑boxes
+  typeToUse = styleOrDT;
+}
+if (typeToUse === "number") {       // number  ↔  currency
+  typeToUse = styleOrDT;
+}
           if (!cmp.validate) cmp.validate = {};
           cmp.validate.required = !!finalRequired;
           updatePreview();
@@ -537,7 +562,6 @@ document.addEventListener("DOMContentLoaded", () => {
     "asset",
     "datetime",
     "number",
-    "currency",
     "editgrid"
   ];
 
@@ -567,8 +591,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         openLabelOptionsModal(
-          (
-            label,
+          (label,
             options,
             disclaimerText,
             surveyQuestions,
@@ -577,13 +600,22 @@ document.addEventListener("DOMContentLoaded", () => {
             finalRequired,
             finalRows,
             selectedDTMode,
-            styleOrDT
-          ) => {
-
-            if (chosenType === "choiceList") {
-              chosenType = styleOrDT;           // "select", "radio", or "selectboxes"
-            }
-            const cmp = createComponent(chosenType, label, options || [], finalHideLabel);
+            styleOrDT,        // ← what the Date/Style buttons returned
+           ) => {
+           
+             // ---------- decide the real component type ----------
+             let typeToUse = chosenType;          // default is whatever card was clicked
+           
+             if (typeToUse === "choiceList") {    // the user then chose a style button
+               typeToUse = styleOrDT;             //  -> select | radio | selectboxes
+             }
+             if (typeToUse === "number") {        // the “Number” card has its own style buttons
+               typeToUse = styleOrDT;             //  -> number | currency
+             }
+             // -----------------------------------------------------
+           
+             const cmp = createComponent(typeToUse, label, options || [], finalHideLabel);
+           
 
             if (chosenType === "survey") {
               cmp.questions = ensureUniqueValues(surveyQuestions);
@@ -607,6 +639,8 @@ document.addEventListener("DOMContentLoaded", () => {
               cmp.__mode = selectedDTMode;
               tweakDateTimeMode(cmp, selectedDTMode);
             }
+      
+            
 
             // Insert into the chosen container
             if (selectedFieldsetKey && selectedFieldsetKey !== "root") {
