@@ -124,6 +124,59 @@ function closeConditionalModal() {
   if (overlay) overlay.style.display = "none";
 }
 
+
+function openMoveToModal(pathIndex) {
+  /* ---------- set‑up ---------- */
+  const overlay = createOverlay(1999);
+  const modal   = document.getElementById("moveToModal");
+  modal.classList.add("super-top");
+  modal._currentOverlay = overlay;
+  modal.style.display = "block";
+
+  /* identify the component we’re moving */
+  const compToMove = getComponentByPath(pathIndex);   // <- helper from mainFormBuilder.js
+
+  /* ---------- build destination cards ---------- */
+  const container = document.getElementById("moveToFieldsetCards");
+  container.innerHTML = "";
+
+  /* 1. “Root” is always allowed */
+  const rootCard = document.createElement("div");
+  rootCard.className  = "card";
+  rootCard.textContent = "Root (Grouping)";
+  rootCard.onclick = () => {
+    moveComponentToFieldset(pathIndex, "root");
+    closeMoveToModal();
+  };
+  container.appendChild(rootCard);
+
+  /* 2. every other field‑set / edit‑grid except the one being moved */
+  gatherFieldsets(formJSON.components).forEach(fs => {
+    /* skip its own field‑set if we’re actually moving a field‑set */
+    if (compToMove && fs.key === compToMove.key) return;
+
+    const card = document.createElement("div");
+    card.className  = "card";
+    card.textContent = fs.label || "[No Label]";
+    card.onclick = () => {
+      moveComponentToFieldset(pathIndex, fs.key);
+      closeMoveToModal();
+    };
+    container.appendChild(card);
+  });
+}
+
+function closeMoveToModal() {
+  const modal = document.getElementById("moveToModal");
+  if (!modal) return;
+  modal.style.display = "none";
+  modal.classList.remove("super-top");
+  if (modal._currentOverlay) {
+    modal._currentOverlay.remove();
+    modal._currentOverlay = null;
+  }
+}
+
 /**
  * Populate possible "Triggering Component" cards
  */
@@ -691,6 +744,30 @@ if (hideLabelToggle) hideLabelToggle.checked = !!initialHideLabel;
     }
   }
 
+  const actionsToggleSection = document.getElementById('actionsToggleSection');
+  const actionsToggle        = document.getElementById('actionsToggle');
+
+  if (['radio','select','selectboxes','choiceList'].includes(type)) {
+    actionsToggleSection.style.display = 'block';
+
+    if (actionsToggle) {
+      if (window._currentEditingComponent) {
+        // editing existing component: reflect its current state
+        actionsToggle.checked = !!window._currentEditingComponent._actionsDriverKey;
+      } else {
+        // new component: default actions ON
+        actionsToggle.checked = true;
+      }
+    }
+  }
+  else {
+    actionsToggleSection.style.display = 'none';
+  }
+
+
+
+
+
   // ----- Choice‑List style buttons -----
 const listStyleContainer = document.getElementById('listStyleContainer');
 let selectedListStyle = null;        // ← nothing selected yet
@@ -942,6 +1019,10 @@ if (type === 'number' || type === 'currency') {
 
       const finalRequired = requiredToggle ? requiredToggle.checked : true;
            
+      const finalActionsEnabled = actionsToggleSection.style.display !== 'none'
+  ? actionsToggle.checked
+  : false;
+
       closeLabelOptionsModal();
       callback(
         finalLabel,
@@ -953,7 +1034,8 @@ if (type === 'number' || type === 'currency') {
         finalRequired,
         finalRows,
         selectedDTMode,
-        styleOrDT
+        styleOrDT,
+        finalActionsEnabled
       );
     };
   }

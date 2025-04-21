@@ -141,8 +141,14 @@ router.get('/formbuilder', (req, res) => {
                 <span class="slider round"></span>
               </label>
             </div>
+            <div id="actionsToggleSection">
+            <label>Actions</label>
+              <label class="switch" style="margin-left:10px;">
+               <input type="checkbox" id="actionsToggle">
+                <span class="slider round"></span>
+              </label>
+            </div>
           </div>
-
           <div id="rowButtonsContainer" style="margin-top:15px display:none;">
             <label>Rows</label>
             <div style="display:flex; gap:10px; margin-top:10px;">
@@ -290,6 +296,20 @@ router.get('/formbuilder', (req, res) => {
         </div>
         <div class="modal-buttons">
           <button id="saveDisclaimerBtn">Save</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ───── Move‑To Modal ───── -->
+    <div id="moveToModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Select Grouping</h3>
+          <span class="close-btn" onclick="closeMoveToModal()">×</span>
+        </div>
+        <div class="modal-body">
+          <div id="moveToFieldsetCards" class="card-container"></div>
         </div>
       </div>
     </div>

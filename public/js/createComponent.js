@@ -1,3 +1,7 @@
+/****************************************************
+ * public/js/createComponent.js
+ ****************************************************/
+
 (function(){
   // --- Environment Detection ---
   var lodash, generateUniqueKey;
@@ -455,8 +459,6 @@
       baseComp.currency = 'USD';
       baseComp.decimal = '.';
       baseComp.thousands = ',';
-      baseComp.prefix = '';
-      baseComp.suffix = '';
     }
     else if (type === 'account') {
       baseComp.widget = 'choicesjs';
@@ -486,8 +488,7 @@
         key: generatedKey,
         type: "content",
         input: false,
-        tableView: false,
-        isDisclaimer: true
+        tableView: false
       };
     }
     else if (type === 'survey') {
@@ -613,6 +614,279 @@
       component.hideLabel || false
     );
   }
+
+  function buildActionsBundle () {
+    /* ----- brand‑new unique keys so we never collide -------------------- */
+    const bundleDigits = String(
+      Object.keys(window._usedKeys).filter(k => /actions\d*$/.test(k)).length || ""
+    );                                         // "" for first bundle, "1" for 2nd …
+    
+    const commentKey    = generateUniqueKey("comments");
+    const photoKey      = generateUniqueKey("photos");
+    const taskKey       = generateUniqueKey("tasks");
+    const tasksGroupKey = generateUniqueKey("tasksgroup");
+    const actionsKey    = generateUniqueKey("actions");
+  
+    /* ---------- Comments ----------------------------------------------- */
+    const commentsComp = {
+      label       : "Comments",
+      labelWidth  : 30,
+      labelMargin : 3,
+      autoExpand  : true,
+      tableView   : true,
+      reportable  : true,
+      validate    : { required: true },
+      key         : commentKey,
+      type        : "textarea",
+      input       : true,
+      builderHidden: true,
+      conditional : { show:true, when: actionsKey, eq:"comments" }
+    };
+  
+    /* ---------- Photos -------------------------------------------------- */
+    const photosComp = {
+      label       : "Photos",
+      labelWidth  : 30,
+      labelMargin : 3,
+      hideLabel   : true,
+      tableView   : false,
+      fileTypes   : [{ label:"", value:"" }],
+      imageSize   : "400",
+      key         : photoKey,
+      type        : "file",
+      input       : true,
+      builderHidden: true,
+      validate    : { required: true },
+      conditional : { show:true, when: actionsKey, eq:"photos" }
+    };
+  
+    /* ---------- inner Tasks component (no conditional) ------------------ */
+    const tasksComp = {
+      label        : "Tasks",
+      labelWidth   : 30,
+      labelMargin  : 3,
+      hideLabel    : true,
+      tableView    : false,
+      key          : taskKey,
+      type         : "tasks",
+      input        : true,
+      defaultOpen  : true,
+      data         : {},
+      taskTriggers : [],
+  
+      components : [
+        {
+          label      : "Name",
+          labelWidth : 30,
+          labelMargin: 3,
+          key        : "title",
+          type       : "textfield",
+          input      : true,
+          validate   : { required:true },
+          tableView  : true
+        },
+        {
+          label      : "Type",
+          widget     : "html5",
+          labelWidth : 30,
+          labelMargin: 3,
+          key        : "type",
+          type       : "select",
+          input      : true,
+          validate   : { required:true },
+          data       : {
+            values : [
+              { label:"Corrective", value:"corrective" },
+              { label:"Preventive", value:"preventive" },
+              { label:"Task",       value:"task"       }
+            ]
+          },
+          tableView : true
+        },
+        {
+          label        : "Priority",
+          widget       : "html5",
+          labelWidth   : 30,
+          labelMargin  : 3,
+          key          : "priority",
+          type         : "select",
+          input        : true,
+          defaultValue : "low",
+          validate     : { required:true },
+          data         : {
+            values : [
+              { label:"Low",    value:"low"    },
+              { label:"Medium", value:"medium" },
+              { label:"High",   value:"high"   }
+            ]
+          },
+          tableView : true
+        },
+        {
+          label       : "Assigned To",
+          widget      : "choicesjs",
+          multiple    : true,
+          labelWidth  : 30,
+          labelMargin : 3,
+          key         : "assignedTo",
+          type        : "account",
+          input       : true,
+          validate    : { required:true },
+          data        : { values: [] },
+          tableView   : true
+        }
+      ]
+    };
+  
+    /* ---------- wrapper field‑set that *does* carry the conditional ----- */
+    const tasksFieldset = {
+      label       : "Tasks",
+      key         : tasksGroupKey,
+      type        : "fieldset",
+      input       : false,
+      tableView   : false,
+      builderHidden: true,
+      hideLabel   : true,
+      conditional : { show:true, when: actionsKey, eq:"task" },
+      components  : [ tasksComp ]
+    };
+  
+    /* ---------- Actions driver ----------------------------------------- */
+    const actionsDriver = {
+      label                : "Actions",
+      labelWidth           : 30,
+      labelMargin          : 3,
+      inline               : true,
+      hideLabel            : true,
+      optionsLabelPosition : "right",
+      tableView            : false,
+      reportable           : true,
+      key                  : actionsKey,
+      type                 : "selectboxes",
+      inputType            : "checkbox",
+      input                : true,
+      values : [
+        { label:"Comments", value:"comments" },
+        { label:"Photos",   value:"photos"   },
+        { label:"Task",     value:"task"     }
+      ],
+      builderHidden: true,
+      defaultValue : { comments:false, photos:false, task:false }
+    };
+  
+    /* ---------- assemble & return -------------------------------------- */
+    return [
+      commentsComp,
+      photosComp,
+      tasksFieldset,   // ← now a grouped container
+      actionsDriver
+    ];
+  }
+  
+  window.buildActionsBundle = buildActionsBundle;
+  
+  function compactActionBundles(parentArray) {
+
+    /* STEP 1 – locate all drivers (“actions, actions1, actions2 …”) */
+    const drivers = parentArray
+      .filter(c => c.builderHidden && c.type === 'selectboxes' && /^actions\d*$/.test(c.key))
+      .sort((a,b) => parentArray.indexOf(a) - parentArray.indexOf(b));
+  
+    if (drivers.length <= 1) return;        // already compact
+  
+    /* STEP 2 – walk through drivers in DOM order and give them new ids */
+    drivers.forEach((drv, idx) => {
+      const oldDigits = drv.key.replace(/^actions/, '');       // "" or "1" or …
+      let newDigits = idx === 0 ? '' : String(idx);
+  const finalKey = ensureGloballyUniqueKey('actions', newDigits);
+  newDigits = finalKey.replace(/^actions/, '');
+  
+      if (oldDigits === newDigits) return;                     // this one’s fine
+  
+      const bases = ['actions', 'comments', 'photos', 'tasks', 'tasksgroup'];
+      bases.forEach(base => {
+        if (["comments","photos","actions","tasks","tasksgroup"].includes(base)) {
+              return;
+            }
+        const oldKey = base + oldDigits;
+
+        const newKey = (base === 'tasks')  
+        ? ensureGloballyUniqueKey('tasks', newDigits)   // might become tasks2, tasks3 …
+        : base + newDigits;
+
+  
+        parentArray.forEach(c => {
+          /* rename component keys … */
+          if (c.key === oldKey) {
+            delete window._usedKeys[c.key];
+            window._usedKeys[newKey] = true;
+            c.key = newKey;
+          }
+  
+          /* … rename conditionals */
+          if (c.conditional?.when === oldKey) c.conditional.when = newKey;
+  
+          /* … and update deep‑nested components */
+          if (Array.isArray(c.components)) {
+            c.components.forEach(sub => {
+              if (sub.key === oldKey) sub.key = newKey;
+              if (sub.conditional?.when === oldKey) sub.conditional.when = newKey;
+            });
+          }
+        });
+  
+        /* adjust the helper flag on the owner component (if any) */
+        parentArray.forEach(c => {
+          if (c._actionsDriverKey === oldKey) c._actionsDriverKey = newKey;
+        });
+      });
+    });
+  }
+
+   function toggleActionsBundle(parentArray, enable, ownerComp) {
+       /* ---------- ENABLE ---------- */
+       if (enable) {
+         if (ownerComp._actionsDriverKey) return;           // already has one
+    
+         const bundle = buildActionsBundle();
+         const idx = parentArray.indexOf(ownerComp);
+          if (idx === -1) {
+            parentArray.push(...bundle);           // ← fallback: shouldn’t happen
+          } else {
+            parentArray.splice(idx + 1, 0, ...bundle);
+          }
+    
+         // remember which driver belongs to this component
+         const driver = bundle.find(c => c.builderHidden && c.type === 'selectboxes');
+         ownerComp._actionsDriverKey = driver.key;
+    
+         compactActionBundles(parentArray);
+         return;
+       }
+    
+       /* ---------- DISABLE ---------- */
+       const dKey = ownerComp._actionsDriverKey;
+       if (!dKey) return;                                   // nothing to remove
+    
+       // 1 remove driver
+       for (let i = parentArray.length - 1; i >= 0; i--) {
+         if (parentArray[i].key === dKey) {
+           parentArray.splice(i, 1);
+           break;
+         }
+       }
+    
+       // 2 remove its dependents
+       for (let i = parentArray.length - 1; i >= 0; i--) {
+         const c = parentArray[i];
+         if (c.conditional?.when === dKey) parentArray.splice(i, 1);
+       }
+    
+       delete ownerComp._actionsDriverKey;
+       compactActionBundles(parentArray);
+     }
+    
+     window.toggleActionsBundle = toggleActionsBundle;
 
   // Expose for CommonJS if available
   if (typeof module !== "undefined" && module.exports) {

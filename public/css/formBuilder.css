@@ -245,6 +245,10 @@ h3:contains("Form JSON Preview") {
     background: rgba(0,0,0,0.5);
     z-index: 900;
 }
+
+.modal.super-top {               /* used by other modals */
+    z-index: 2000 !important;
+  }
 .modal.nested {
     z-index: 1100;
 }

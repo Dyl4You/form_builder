@@ -11,7 +11,7 @@ function gatherFieldsets(components, fieldsets = []) {
     // If this is the special nested fieldset inside an Edit Grid, skip adding it
     const isNestedFieldset = comp.type === "fieldset" && comp.isEditGridChildFieldset;
 
-    if ((comp.type === "fieldset" || comp.type === "editgrid") && !isNestedFieldset) {
+    if ((comp.type === "fieldset" || comp.type === "editgrid") && !isNestedFieldset && !comp.builderHidden) {
       fieldsets.push(comp);
     }
 
@@ -53,6 +53,7 @@ function renderComponentCards() {
 
   let html = "";
   comps.forEach((comp, i) => {
+    if (comp.builderHidden) return;
     const label = comp.label || "[No Label]";
     const displayedType = comp.customType || comp.type;
 
@@ -129,14 +130,19 @@ function renderComponentCards() {
             Down
           </button>
           <button class="component-action-btn"
+                  data-action="edit"
+                  title="Edit Component">
+            Edit
+          </button>
+          <button class="component-action-btn"
                   data-action="conditional"
                   title="Set Conditional Logic">
             Conditional
           </button>
           <button class="component-action-btn"
-                  data-action="edit"
-                  title="Edit Component">
-            Edit
+            data-action="moveto"
+            title="Move to Field‑set">
+            Move To
           </button>
           <button class="component-action-btn"
                   data-action="delete"
@@ -197,9 +203,18 @@ function tweakDateTimeMode(comp, mode) {
  */
 function updatePreview() {
   const preEl = document.getElementById("formPreview");
-  if (preEl) {
-    preEl.textContent = JSON.stringify(formJSON, null, 2);
-  }
+if (preEl) {
+  // deep‑clone and strip every builderHidden flag before previewing
+  const clean = JSON.parse(JSON.stringify(formJSON));
+  (function strip(o){
+    if (Array.isArray(o)) { o.forEach(strip); return; }
+    if (o && typeof o === 'object') {
+      delete o.builderHidden;
+      if (o.components) strip(o.components);
+    }
+  })(clean);
+  preEl.textContent = JSON.stringify(clean, null, 2);
+}
   updateComponentList();
   updateFieldsetCards();
 
@@ -215,24 +230,69 @@ function updatePreview() {
  * Reorder a component at the given `path` by swapping it up or down in the array.
  */
 function moveComponentAtPath(path, direction) {
-  let targetArray;
-  if (selectedFieldsetKey === "root") {
-    targetArray = formJSON.components;
+  /* ---------------- 0. helpers ---------------- */
+  const isVisible = c => !c.builderHidden;           // “card” components only
+
+  /* ---------------- 1. locate the array & owner ---------------- */
+  const targetArray = selectedFieldsetKey === "root"
+    ? formJSON.components
+    : (findFieldsetByKey(formJSON.components, selectedFieldsetKey)?.components || []);
+  const ownerIdx = Number(path);
+  const owner    = targetArray[ownerIdx];
+  if (!owner) return;
+
+  /* ---------------- 2. build the bundle (owner + actions bits) -- */
+  const bundle   = [owner];
+  const indexMap = new Map([[owner, ownerIdx]]);
+  if (owner._actionsDriverKey) {
+    const dKey = owner._actionsDriverKey;
+    targetArray.forEach((c,i) => {
+      if (c.key === dKey || c.conditional?.when === dKey) {
+        bundle.push(c);
+        indexMap.set(c,i);
+      }
+    });
+  }
+  bundle.sort((a,b) => indexMap.get(a) - indexMap.get(b));
+  const bundleLen = bundle.length;
+  const firstIdx  = Math.min(...indexMap.values());
+  const lastIdx   = Math.max(...indexMap.values());
+
+  /* ---------------- 3. pull it out ------------------------------ */
+  targetArray.splice(firstIdx, bundleLen);
+
+  /* ---------------- 4. decide where it should go ---------------- */
+  let insertAt;
+
+  if (direction === "up") {
+    // scan backwards for the previous VISIBLE component
+    let i = firstIdx - 1;
+    while (i >= 0 && !isVisible(targetArray[i])) i--;
+    insertAt = (i < 0) ? 0 : i;                     // before that owner (or top)
+  }
+  else if (direction === "down") {
+    // scan forwards for the next VISIBLE component
+    let i = firstIdx;                               // same index after removal
+    while (i < targetArray.length && !isVisible(targetArray[i])) i++;
+    if (i >= targetArray.length) {
+      insertAt = targetArray.length;                // already bottom – stick to the end
+    } else {
+      // skip that owner’s *own* hidden followers
+      let j = i + 1;
+      while (j < targetArray.length && !isVisible(targetArray[j])) j++;
+      insertAt = j;                                 // right after the next bundle
+    }
   } else {
-    const fs = findFieldsetByKey(formJSON.components, selectedFieldsetKey);
-    targetArray = fs ? fs.components : [];
+    insertAt = firstIdx;                            // fallback: no move
   }
 
-  const index = Number(path);
+  /* ---------------- 5. push it back in -------------------------- */
+  targetArray.splice(insertAt, 0, ...bundle);
 
-  if (direction === "up" && index > 0) {
-    [targetArray[index - 1], targetArray[index]] = [targetArray[index], targetArray[index - 1]];
-  } else if (direction === "down" && index < targetArray.length - 1) {
-    [targetArray[index + 1], targetArray[index]] = [targetArray[index], targetArray[index + 1]];
-  }
-
+  /* ---------------- 6. redraw ----------------------------------- */
   updatePreview();
 }
+
 
 /**
  * Edit a component by path index. Reuses your openLabelOptionsModal.
@@ -242,6 +302,7 @@ function editComponent(pathIndex) {
   if (!comp) {
     return; // No notifications, just silently stop
   }
+  window._currentEditingComponent = comp;
 
   let initialLabel = comp.label || "";
   let initialOptions = [];
@@ -289,7 +350,8 @@ function editComponent(pathIndex) {
       finalRequired,
       finalRows,
       selectedDTMode,
-      styleOrMode
+      styleOrMode,
+      actionsEnabled
     ) => {
       comp.label = newLabel;
       comp.hideLabel = !!finalHideLabel;
@@ -298,59 +360,73 @@ function editComponent(pathIndex) {
       if (!comp.validate) comp.validate = {};
       comp.validate.required = !!finalRequired;
 
-     // ----- change Select / Radio / Select‑Boxes style if user switched -----
-if (["select","radio","selectboxes"].includes(comp.type) &&
-["select","radio","selectboxes"].includes(styleOrMode) &&
-styleOrMode !== comp.type) {
+      if (["select", "radio", "selectboxes"].includes(comp.type)) {
+        const uniqueItems = ensureUniqueValues(newOpts);   // avoids duplicate values
+        if (comp.type === "select") {
+          comp.data = comp.data || {};
+          comp.data.values = uniqueItems;
+        } else {
+          comp.values = uniqueItems;
+        }
+      }
+  
+ 
 
-/* ---- switch Number <‑‑> Currency if user toggled ---- */
-if ((comp.type === 'number' || comp.type === 'currency') &&
-    (styleOrMode === 'number' || styleOrMode === 'currency') &&
+/* ───── style change: Dropdown ↔ Radio ↔ Select Boxes ───── */
+if (["select", "radio", "selectboxes"].includes(comp.type) &&
+    ["select", "radio", "selectboxes"].includes(styleOrMode) &&
     styleOrMode !== comp.type) {
+
+  const clone = a => a.map(o => ({ ...o }));
+
+  // Moving away from a <select>: pull options out of .data.values
+  if (comp.type === "select") {
+    comp.values = clone(comp.data?.values || []);
+    delete comp.data;
+  }
+
+  // Reset style‑specific flags
+  delete comp.inline;
+  delete comp.optionsLabelPosition;
+  delete comp.inputType;
+  delete comp.modalEdit;           // ← always clear old modalEdit
+
+  if (styleOrMode === "select") {
+    // → Dropdown
+    comp.type   = "select";
+    comp.widget = "html5";
+    comp.placeholder = "Tap & Select";
+    comp.data   = { values: clone(comp.values) };
+    delete comp.values;
+    comp.tableView = true;
+  } else {
+    // → Radio or Select Boxes
+    comp.type                 = styleOrMode;
+    comp.inline               = (styleOrMode === "radio");
+    comp.optionsLabelPosition = "right";
+    comp.tableView            = false;
+    if (styleOrMode === "selectboxes") {
+      comp.inputType = "checkbox";
+      comp.modalEdit = true;     // ← only here
+    }
+  }
+}
+
+
+/* ───── style change: Number ↔ Currency ───── */
+if ((comp.type === "number" || comp.type === "currency") &&
+    (styleOrMode === "number" || styleOrMode === "currency") &&
+    styleOrMode !== comp.type) {
+
   comp.type = styleOrMode;
-}
 
-let typeToUse = chosenType;         // chosenType comes from the outer scope
-
-if (typeToUse === "choiceList") {   // select / radio / select‑boxes
-  typeToUse = styleOrDT;
-}
-if (typeToUse === "number") {       // number  ↔  currency
-  typeToUse = styleOrDT;
-}
-
-// helper
-const cloneVals = arr => arr.map(o => ({...o}));
-
-// move option arrays to / from .data.values as needed
-if (comp.type === "select") {
-comp.values = cloneVals(comp.data?.values || []);
-delete comp.data;
-} else if (!comp.values) {
-comp.values = [];
-}
-
-// common clean‑up
-delete comp.inline;
-delete comp.optionsLabelPosition;
-delete comp.inputType;
-comp.tableView = (styleOrDT === "select");
-
-if (styleOrDT === "select") {            // Switch to Dropdown
-comp.type   = "select";
-comp.widget = "html5";
-comp.data   = { values: cloneVals(comp.values) };
-delete comp.values;
-} else {                                 // Switch to Radio or Select‑Boxes
-comp.type                 = styleOrDT;
-comp.inline               = (styleOrDT === "radio");
-comp.optionsLabelPosition = "right";
-if (styleOrDT === "selectboxes") {
-  comp.inputType  = "checkbox";
-  comp.modalEdit  = true;
-  comp.tableView  = false;
-}
-}
+  if (styleOrMode === "currency") {
+    comp.currency  = "USD";
+    comp.delimiter = true;
+  } else {
+    delete comp.currency;
+    delete comp.delimiter;
+  }
 }
 
 
@@ -382,6 +458,14 @@ if (styleOrDT === "selectboxes") {
   tweakDateTimeMode(comp, selectedDTMode);
 }
 
+
+      const parentArray =
+            (selectedFieldsetKey === 'root')
+              ? formJSON.components
+              : findFieldsetByKey(formJSON.components, selectedFieldsetKey)?.components || [];
+
+              toggleActionsBundle(parentArray, actionsEnabled, comp);
+              window._currentEditingComponent = null;
       updatePreview();
       // No showNotification call
     },
@@ -396,22 +480,6 @@ if (styleOrDT === "selectboxes") {
     initialRows,
     initialDTMode
   );
-}
-
-/**
- * Remove a component from the current fieldset by path index.
- */
-function removeComponentAtPath(path) {
-  let targetArray;
-  if (selectedFieldsetKey === "root") {
-    targetArray = formJSON.components;
-  } else {
-    const fs = findFieldsetByKey(formJSON.components, selectedFieldsetKey);
-    targetArray = fs ? fs.components : [];
-  }
-  const index = Number(path);
-  targetArray.splice(index, 1);
-  updatePreview();
 }
 
 /**
@@ -500,7 +568,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (addFieldsetBtn) {
     addFieldsetBtn.addEventListener("click", () => {
       openLabelOptionsModal(
-        (label, options, disclaimerText, surveyQuestions, surveyOptions, finalHideLabel, finalRows, finalRequired, selectedDTMode, styleOrMode, styleChoice  ) => {
+        (label, options, disclaimerText, surveyQuestions, surveyOptions, finalHideLabel, finalRows, finalRequired, selectedDTMode, styleOrMode  ) => {
           const cmp = createComponent("fieldset", label, options, finalHideLabel);
           if (selectedFieldsetKey && selectedFieldsetKey !== "root") {
             const fs = findFieldsetByKey(formJSON.components, selectedFieldsetKey);
@@ -592,7 +660,8 @@ document.addEventListener("DOMContentLoaded", () => {
             finalRequired,
             finalRows,
             selectedDTMode,
-            styleOrDT,        // ← what the Date/Style buttons returned
+            styleOrDT,
+            actionsEnabled        // ← what the Date/Style buttons returned
            ) => {
            
              // ---------- decide the real component type ----------
@@ -611,17 +680,17 @@ document.addEventListener("DOMContentLoaded", () => {
               cmp.validate.required = !!finalRequired;
            
 
-            if (chosenType === "survey") {
+            if (typeToUse === "survey") {
               cmp.questions = ensureUniqueValues(surveyQuestions);
               cmp.values = ensureUniqueValues(surveyOptions);
             }
-            if (chosenType === "disclaimer") {
+            if (typeToUse === "disclaimer") {
               cmp.html = disclaimerText.startsWith("<p")
                 ? disclaimerText
                 : `<p>${disclaimerText}</p>`;
             }
             // If textarea => set rows + special props
-            if (chosenType === "textarea") {
+            if (typeToUse === "textarea") {
               cmp.rows = finalRows || 1;
               cmp.labelWidth = 30;
               cmp.labelMargin = 3;
@@ -629,7 +698,7 @@ document.addEventListener("DOMContentLoaded", () => {
               cmp.reportable = true;
               cmp.tableView = true;
             }
-            if (chosenType === "datetime") {
+            if (typeToUse === "datetime") {
               cmp.__mode = selectedDTMode;
               tweakDateTimeMode(cmp, selectedDTMode);
             }
@@ -647,6 +716,16 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
               formJSON.components.push(cmp);
             }
+
+
+            const parentArray =
+            (selectedFieldsetKey === 'root')
+              ? formJSON.components
+              : findFieldsetByKey(formJSON.components, selectedFieldsetKey)?.components || [];
+      
+              toggleActionsBundle(parentArray, actionsEnabled, cmp);
+              window._currentEditingComponent = null;
+
             updatePreview();
             
             document.querySelectorAll("#componentTypeContainer .card").forEach(card => {
@@ -685,6 +764,9 @@ document.addEventListener("DOMContentLoaded", () => {
           break;
         case "delete":
           removeComponentAtPath(path);
+          break;
+        case "moveto":
+          openMoveToModal(path);
           break;
       }
     });
