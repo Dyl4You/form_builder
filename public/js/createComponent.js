@@ -615,11 +615,7 @@
     );
   }
 
-  function buildActionsBundle () {
-    /* ----- brand‑new unique keys so we never collide -------------------- */
-    const bundleDigits = String(
-      Object.keys(window._usedKeys).filter(k => /actions\d*$/.test(k)).length || ""
-    );                                         // "" for first bundle, "1" for 2nd …
+  function buildActionsBundle () {                                      // "" for first bundle, "1" for 2nd …
     
     const commentKey    = generateUniqueKey("comments");
     const photoKey      = generateUniqueKey("photos");
@@ -803,16 +799,14 @@
   
       if (oldDigits === newDigits) return;                     // this one’s fine
   
-      const bases = ['actions', 'comments', 'photos', 'tasks', 'tasksgroup'];
-      bases.forEach(base => {
-        if (["comments","photos","actions","tasks","tasksgroup"].includes(base)) {
-              return;
-            }
-        const oldKey = base + oldDigits;
-
-        const newKey = (base === 'tasks')  
-        ? ensureGloballyUniqueKey('tasks', newDigits)   // might become tasks2, tasks3 …
-        : base + newDigits;
+      const bases = ['actions','comments','photos','tasks','tasksgroup'];
+bases.forEach(base => {
+  // don’t ever rename our five driver keys
+  if (['actions','comments','photos','tasks','tasksgroup'].includes(base)) {
+    return;
+  }
+  const oldKey = base + oldDigits;
+  const newKey = base + newDigits;
 
   
         parentArray.forEach(c => {
