@@ -2,6 +2,11 @@
  * public/js/createComponent.js
  ****************************************************/
 
+
+var ensureGloballyUniqueKey = (typeof require === 'function')
+  ? (require('../../src/parser/unifiedParser').ensureGloballyUniqueKey)
+  : window.ensureGloballyUniqueKey;
+
 (function(){
   // --- Environment Detection ---
   var lodash, generateUniqueKey;
@@ -23,6 +28,15 @@
     };
   }
   const _ = lodash;
+
+  if (typeof _.camelCase !== 'function') {
+    _.camelCase = function(str) {
+      return String(str)
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+(.)/g, (match, chr) => chr.toUpperCase());
+    };
+  }
 
   /**
    * Small helper: takes an array of objects with at least { label: "..." },
@@ -56,6 +70,8 @@
     number     : 'Number',
     currency   : 'Currency',
     editgrid   : 'Edit Grid',
+    columns    : 'Columns',
+    quiz       : 'Quiz', 
     fieldset   : 'Grouping'
   };
   
@@ -298,6 +314,117 @@
         components: [] 
       };
     }
+    else if (type === 'columns') {
+      // always start with TWO columns (12-grid → 6+6)
+      baseComp = {
+        label: finalLabel,
+        labelWidth: 30,
+        labelMargin: 3,
+        key: generatedKey,
+        type: 'columns',
+        input: false,
+        tableView: false,
+        columns: [
+          {
+            components   : [],     // we’ll drop the owner here later
+            width        : 6,
+            offset       : 0,
+            push         : 0,
+            pull         : 0,
+            size         : 'sm',
+            currentWidth : 6
+          },
+          {
+            components   : [],
+            width        : 6,
+            offset       : 0,
+            push         : 0,
+            pull         : 0,
+            size         : 'sm',
+            currentWidth : 6
+          }
+        ]
+      };
+    }
+    else if (type === 'quiz') {
+      const qKey = generateUniqueKey(finalLabel || 'quiz');
+    
+      /* ---------- helpers that grade the quiz on every change -------- */
+      const gradeJS = `
+      const quiz   = instance.parent;
+      const cfg    = quiz.component;
+      const answer = cfg.answerKey || {};
+      const pass   = Number(cfg.passMark) || 0;
+    
+      let correct = 0, wrong = 0, good = [], bad = [];
+    
+      Object.keys(answer).forEach(k => {
+        /* ── work out the nice display number ───────────────── */
+        let num = k;                                 // fallback
+        const cmp = (cfg.components || []).find(c => c.key === k);
+        if (cmp && typeof cmp.label === 'string') {
+          /* pull leading digits from “1. Question” etc. */
+          const m = cmp.label.match(/^\\s*(\\d+)/);
+          if (m) num = m[1];
+        }
+    
+        const expected = Object.keys(answer[k]).find(v => answer[k][v]);
+        const given    = data[k];
+    
+        if (String(given) === String(expected)) { correct++; good.push(num); }
+        else if (given)                           { wrong++;  bad.push(num); }
+      });
+    
+      /* expose counts so the three textareas can share them */
+      util.correct   = correct;
+      util.incorrect = wrong;
+      util.good      = good;
+      util.bad       = bad;
+    `;
+    
+      /* build the three hidden summary fields */
+      const makeField = (lbl, key, calcBody) => ({
+        label         : lbl,
+        key,
+        type          : 'textarea',
+        rows          : 1,          // single-row textarea
+        autoExpand    : false,
+        builderHidden : true,
+        calculateValue: `${gradeJS}\n${calcBody}`
+      });
+    
+      const summaryBits = [
+        makeField('Correct Answers',   'correctAnswersDisplay',
+                  `value = util.good.length ? util.good.join(', ') : '';`),
+    
+        makeField('Incorrect Answers', 'incorrectAnswers',
+                  `value = util.bad.length  ? util.bad.join(', ') : '';`),
+    
+        makeField('Result',            'quizResult',
+                  `value = (util.correct >= (Number(instance.parent.component.passMark)||0) &&
+                            util.correct) ? 'Pass' : 'Fail';`)
+      ];
+    
+      /* ---------- quiz container ------------------------------------ */
+      baseComp = {
+        label      : finalLabel,
+        hideLabel  : true,
+        key        : qKey,
+        type       : 'fieldset',
+        input      : false,
+        tableView  : false,
+    
+        /* edited via the inline UI in renderAnswerKeyBoard() */
+        passMark   : 0,
+    
+        /* answer-key object mutated live by renderAnswerKeyBoard() */
+        answerKey  : {},
+    
+        components : [ ...summaryBits ],
+    
+        validate   : { required:true }
+      };
+    }
     else if (type === 'radio') {
       baseComp.tableView = false;
       baseComp.inline = true;
@@ -305,11 +432,11 @@
       baseComp.validate = { required: true };
       const uniqueItems = ensureUniqueValues(options);
       baseComp.values = uniqueItems.map(opt => ({
-        label: opt.label,
-        value: opt.value,
-        shortcut: "",
-        flag: ""
-      }));
+           label    : opt.label,
+           value    : opt.value,
+           shortcut : opt.shortcut || "",
+           flag     : opt.flag     || ""      // ← preserves “success” & “danger”
+         }));
     }
     else if (type === 'select') {
       baseComp.widget = "html5";
@@ -487,6 +614,7 @@
         refreshOnChange: false,
         key: generatedKey,
         type: "content",
+        customType: "disclaimer",
         input: false,
         tableView: false
       };
@@ -550,10 +678,8 @@
           tooltip: ""
         }));
         component.values = finalSurveyOpts.map(item => ({
-          label: item.label,
-          value: item.value,
-          tooltip: "",
-          flag: ""
+          label: item.label, value: item.value,
+          tooltip: item.tooltip || "", flag: item.flag || ""
         }));
         updatePreview();
         // removed notification
@@ -615,48 +741,56 @@
     );
   }
 
-  function buildActionsBundle () {                                      // "" for first bundle, "1" for 2nd …
-    
-    const commentKey    = generateUniqueKey("comments");
-    const photoKey      = generateUniqueKey("photos");
-    const taskKey       = generateUniqueKey("tasks");
-    const tasksGroupKey = generateUniqueKey("tasksgroup");
-    const actionsKey    = generateUniqueKey("actions");
+
+  window._actionsCounter = window._actionsCounter || 0;
+  function buildActionsBundle(parentArray) {
+    // Pick suffix = '' for first bundle, '1' for second, '2' for third, …
+    const suffix = window._actionsCounter === 0
+      ? ''
+      : String(window._actionsCounter);
+    window._actionsCounter++;
   
-    /* ---------- Comments ----------------------------------------------- */
+    const commentKey    = ensureGloballyUniqueKey('comments',   suffix);
+    const photoKey      = ensureGloballyUniqueKey('photos',     suffix);
+    const taskKey       = ensureGloballyUniqueKey('tasks',      suffix);
+    const tasksGroupKey = ensureGloballyUniqueKey('tasksgroup', suffix);
+    const actionsKey    = ensureGloballyUniqueKey('actions',    suffix);
+  
+  
+    /*---------- Comments -----------------------------------------------*/
     const commentsComp = {
-      label       : "Comments",
-      labelWidth  : 30,
-      labelMargin : 3,
-      autoExpand  : true,
-      tableView   : true,
-      reportable  : true,
-      validate    : { required: true },
-      key         : commentKey,
-      type        : "textarea",
-      input       : true,
+      label        : "Comments",
+      labelWidth   : 30,
+      labelMargin  : 3,
+      autoExpand   : true,
+      tableView    : true,
+      reportable   : true,
+      validate     : { required: true },
+      key          : commentKey,
+      type         : "textarea",
+      input        : true,
       builderHidden: true,
-      conditional : { show:true, when: actionsKey, eq:"comments" }
+      conditional  : { show: true, when: actionsKey, eq: "comments" }
     };
   
-    /* ---------- Photos -------------------------------------------------- */
+    /*---------- Photos -------------------------------------------------*/
     const photosComp = {
-      label       : "Photos",
-      labelWidth  : 30,
-      labelMargin : 3,
-      hideLabel   : true,
-      tableView   : false,
-      fileTypes   : [{ label:"", value:"" }],
-      imageSize   : "400",
-      key         : photoKey,
-      type        : "file",
-      input       : true,
+      label        : "Photos",
+      labelWidth   : 30,
+      labelMargin  : 3,
+      hideLabel    : true,
+      tableView    : false,
+      fileTypes    : [{ label:"", value:"" }],
+      imageSize    : "400",
+      key          : photoKey,
+      type         : "file",
+      input        : true,
       builderHidden: true,
-      validate    : { required: true },
-      conditional : { show:true, when: actionsKey, eq:"photos" }
+      validate     : { required: true },
+      conditional  : { show: true, when: actionsKey, eq: "photos" }
     };
   
-    /* ---------- inner Tasks component (no conditional) ------------------ */
+    /*---------- inner Tasks component (no conditional) ---------------*/
     const tasksComp = {
       label        : "Tasks",
       labelWidth   : 30,
@@ -669,85 +803,85 @@
       defaultOpen  : true,
       data         : {},
       taskTriggers : [],
-  
-      components : [
+      components   : [
         {
           label      : "Name",
-          labelWidth : 30,
-          labelMargin: 3,
           key        : "title",
           type       : "textfield",
           input      : true,
-          validate   : { required:true },
-          tableView  : true
+          tableView  : true,
+          validate   : { required: true },
+          labelWidth : 30,
+          labelMargin: 3
         },
         {
           label      : "Type",
-          widget     : "html5",
-          labelWidth : 30,
-          labelMargin: 3,
           key        : "type",
           type       : "select",
+          widget     : "html5",
           input      : true,
-          validate   : { required:true },
+          tableView  : true,
+          validate   : { required: true },
           data       : {
-            values : [
-              { label:"Corrective", value:"corrective" },
-              { label:"Preventive", value:"preventive" },
-              { label:"Task",       value:"task"       }
+            values: [
+              { label: "Corrective", value: "corrective" },
+              { label: "Preventive", value: "preventive" },
+              { label: "Task",       value: "task" }
             ]
           },
-          tableView : true
+          labelWidth : 30,
+          labelMargin: 3
         },
         {
           label        : "Priority",
-          widget       : "html5",
-          labelWidth   : 30,
-          labelMargin  : 3,
           key          : "priority",
           type         : "select",
+          widget       : "html5",
           input        : true,
+          tableView    : true,
           defaultValue : "low",
-          validate     : { required:true },
+          validate     : { required: true },
           data         : {
-            values : [
-              { label:"Low",    value:"low"    },
-              { label:"Medium", value:"medium" },
-              { label:"High",   value:"high"   }
+            values: [
+              { label: "Low",    value: "low" },
+              { label: "Medium", value: "medium" },
+              { label: "High",   value: "high" }
             ]
           },
-          tableView : true
+          labelWidth   : 30,
+          labelMargin  : 3
         },
         {
-          label       : "Assigned To",
-          widget      : "choicesjs",
-          multiple    : true,
-          labelWidth  : 30,
-          labelMargin : 3,
-          key         : "assignedTo",
-          type        : "account",
-          input       : true,
-          validate    : { required:true },
-          data        : { values: [] },
-          tableView   : true
+          label      : "Assigned To",
+          key        : "assignedTo",
+          type       : "account",
+          widget     : "choicesjs",
+          multiple   : true,
+          input      : true,
+          tableView  : true,
+          validate   : { required: true },
+          data       : { values: [] },
+          labelWidth : 30,
+          labelMargin: 3
         }
       ]
     };
+    
   
-    /* ---------- wrapper field‑set that *does* carry the conditional ----- */
+    /*---------- wrapper fieldset that carries the conditional ---------*/
     const tasksFieldset = {
-      label       : "Tasks",
-      key         : tasksGroupKey,
-      type        : "fieldset",
-      input       : false,
-      tableView   : false,
+      label        : "Tasks",
+      key          : tasksGroupKey,
+      type         : "fieldset",
+      input        : false,
+      tableView    : false,
       builderHidden: true,
-      hideLabel   : true,
-      conditional : { show:true, when: actionsKey, eq:"task" },
-      components  : [ tasksComp ]
+      hideLabel    : true,
+      conditional  : { show: true, when: actionsKey, eq: "task" },
+      components   : [ tasksComp ]
     };
   
-    /* ---------- Actions driver ----------------------------------------- */
+    /*---------- Actions driver ---------------------------------------*/
     const actionsDriver = {
       label                : "Actions",
       labelWidth           : 30,
@@ -761,7 +895,7 @@
       type                 : "selectboxes",
       inputType            : "checkbox",
       input                : true,
-      values : [
+      values               : [
         { label:"Comments", value:"comments" },
         { label:"Photos",   value:"photos"   },
         { label:"Task",     value:"task"     }
@@ -770,14 +904,14 @@
       defaultValue : { comments:false, photos:false, task:false }
     };
   
-    /* ---------- assemble & return -------------------------------------- */
     return [
       commentsComp,
       photosComp,
-      tasksFieldset,   // ← now a grouped container
+      tasksFieldset,
       actionsDriver
     ];
   }
+  
   
   window.buildActionsBundle = buildActionsBundle;
   
@@ -837,50 +971,60 @@ bases.forEach(base => {
     });
   }
 
-   function toggleActionsBundle(parentArray, enable, ownerComp) {
-       /* ---------- ENABLE ---------- */
-       if (enable) {
-         if (ownerComp._actionsDriverKey) return;           // already has one
-    
-         const bundle = buildActionsBundle();
-         const idx = parentArray.indexOf(ownerComp);
-          if (idx === -1) {
-            parentArray.push(...bundle);           // ← fallback: shouldn’t happen
-          } else {
-            parentArray.splice(idx + 1, 0, ...bundle);
-          }
-    
-         // remember which driver belongs to this component
-         const driver = bundle.find(c => c.builderHidden && c.type === 'selectboxes');
-         ownerComp._actionsDriverKey = driver.key;
-    
-         compactActionBundles(parentArray);
-         return;
-       }
-    
-       /* ---------- DISABLE ---------- */
-       const dKey = ownerComp._actionsDriverKey;
-       if (!dKey) return;                                   // nothing to remove
-    
-       // 1 remove driver
-       for (let i = parentArray.length - 1; i >= 0; i--) {
-         if (parentArray[i].key === dKey) {
-           parentArray.splice(i, 1);
-           break;
-         }
-       }
-    
-       // 2 remove its dependents
-       for (let i = parentArray.length - 1; i >= 0; i--) {
-         const c = parentArray[i];
-         if (c.conditional?.when === dKey) parentArray.splice(i, 1);
-       }
-    
-       delete ownerComp._actionsDriverKey;
-       compactActionBundles(parentArray);
-     }
-    
-     window.toggleActionsBundle = toggleActionsBundle;
+  function toggleActionsBundle(parentArray, enable, ownerComp) {
+    /* ---------- ENABLE ---------- */
+    if (enable) {
+      if (ownerComp._actionsDriverKey) return;           // already has one
+  
+      const bundle = buildActionsBundle(parentArray);
+      const idx = parentArray.indexOf(ownerComp);
+      if (idx === -1) {
+        parentArray.push(...bundle);                     // ← fallback: shouldn’t happen
+      } else {
+        parentArray.splice(idx + 1, 0, ...bundle);
+      }
+  
+      // remember which driver belongs to this component
+      const driver = bundle.find(c => c.builderHidden && c.type === 'selectboxes');
+      ownerComp._actionsDriverKey = driver.key;
+  
+      compactActionBundles(parentArray);
+      return;
+    }
+  
+    /* ---------- DISABLE ---------- */
+    const dKey = ownerComp._actionsDriverKey;
+    if (!dKey) return;  // nothing to remove
+  
+    // collect driver + dependent keys so we can free them
+    const toFree = [ dKey ];
+  
+    // 1. remove driver
+    for (let i = parentArray.length - 1; i >= 0; i--) {
+      if (parentArray[i].key === dKey) {
+        parentArray.splice(i, 1);
+        break;
+      }
+    }
+  
+    // 2. remove its dependents
+    for (let i = parentArray.length - 1; i >= 0; i--) {
+      const c = parentArray[i];
+      if (c.conditional?.when === dKey) {
+        toFree.push(c.key);
+        parentArray.splice(i, 1);
+      }
+    }
+  
+    // 3. free them from the global registry so suffixes can be reused
+    toFree.forEach(key => delete window._usedKeys[key]);
+  
+    delete ownerComp._actionsDriverKey;
+    compactActionBundles(parentArray);
+  }
+  
+  window.toggleActionsBundle = toggleActionsBundle;
+  
 
   // Expose for CommonJS if available
   if (typeof module !== "undefined" && module.exports) {

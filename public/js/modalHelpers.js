@@ -12,6 +12,115 @@ function createOverlay(zIndex) {
   return overlay;
 }
 
+/* --------------------------------------------------
+   Modal keyboard helpers  (focus trap + ⏎ to “Save”)
+   --------------------------------------------------*/
+   function getFocusable(modal) {
+    return Array.from(
+      modal.querySelectorAll(
+        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter(el => el.offsetParent !== null);
+  }
+  
+  function trapFocus(modal) {
+    const focusables = getFocusable(modal);
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last  = focusables[focusables.length - 1];
+  
+    modal.__focusTrap = e => {
+      if (e.key !== 'Tab') return;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();    // Shift-Tab on first → loop to last
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();   // Tab on last → loop to first
+      }
+    };
+    modal.addEventListener('keydown', modal.__focusTrap);
+  }
+  
+  function untrapFocus(modal) {
+    if (!modal) return;
+    if (modal.__focusTrap) {
+      modal.removeEventListener('keydown', modal.__focusTrap);
+      delete modal.__focusTrap;
+    }
+  }
+  
+  /**
+ *  Enable keyboard helpers for a modal.
+ *
+ *  ⏎  – clicks `saveBtn` (if present **and enabled**);  
+ *        otherwise runs `closeFn` or falls back to the modal’s .close-btn
+ *  ⎋  – always closes (via .close-btn if present)
+ *
+ *  Call this **after** the modal has been inserted/shown.
+ */
+  function enableModalKeys(modal,
+                              saveBtn           = null,
+                              closeFn           = null,
+                              allowInputReturn  = false) {
+  trapFocus(modal);
+
+    /* make sure *something* inside the modal has focus so
+     the keydown listener you’re about to add will fire      */
+  if (!getFocusable(modal).length) {
+    /* allow the element itself to receive focus once */
+    if (!modal.hasAttribute('tabindex')) modal.setAttribute('tabindex', '-1');
+    modal.focus();
+  }
+
+
+  modal.__enterHandler = e => {
+    if (e.key === 'Enter') {
+      /* ignore when user is actively typing */
+      const tag = (e.target.tagName || '').toUpperCase();
+      const isTextarea   = tag === 'TEXTAREA';
+      const isTextInput  = tag === 'INPUT' &&
+        /text|number|email|search|password|url|tel/i.test(e.target.type);
+
+      const isTyping = isTextarea || (isTextInput && !allowInputReturn);
+
+      if (!isTyping) {
+        e.preventDefault();
+
+        /* 1️⃣  try to save */
+        if (saveBtn && !saveBtn.disabled) {
+          saveBtn.click();
+
+        /* 2️⃣  otherwise close/cancel */
+        } else if (typeof closeFn === 'function') {
+          closeFn();
+        } else {
+          modal.querySelector('.close-btn')?.click();
+        }
+      }
+
+    } else if (e.key === 'Escape') {
+      modal.querySelector('.close-btn')?.click();
+    }
+  };
+
+  modal.addEventListener('keydown', modal.__enterHandler);
+
+    /* auto-focus the first focusable element (if we have any) */
+  requestAnimationFrame(() => {
+    const first = getFocusable(modal)[0];
+    if (first) first.focus();
+  });
+}
+  
+  function disableModalKeys(modal) {
+    if (!modal) return;
+    untrapFocus(modal);
+    if (modal.__enterHandler) {
+      modal.removeEventListener('keydown', modal.__enterHandler);
+      delete modal.__enterHandler;
+    }
+  }
+  
+
 // If you rely on getSurveyQuestions / getSurveyOptions, keep them:
 function getSurveyQuestions() {
   const container = document.getElementById("surveyQuestionsTagContainerUnified");
@@ -25,6 +134,8 @@ function getSurveyOptions() {
   return Array.from(container.querySelectorAll('.tag-bubble')).map(tag => tag.textContent.trim());
 }
 
+let _presetDetailedOptions = null;
+let _presetRadioOptions = null; 
 /**************************************************************
  *  Conditional Logic Modals
  **************************************************************/
@@ -34,6 +145,7 @@ function openConditionalModal(relativePath) {
 
   const modal = document.getElementById("conditionalModal");
   const overlay = document.getElementById("overlay");
+  disableModalKeys(modal);
   if (!modal || !overlay) return;
 
   let targetComponent;
@@ -58,6 +170,8 @@ function openConditionalModal(relativePath) {
   if (selectedKey) {
     const allComps = getAllComponents(formJSON.components);
     const whenComp = allComps.find(c => c.key === selectedKey);
+  
+    // pre-populate the value-cards for this triggering component
     if (whenComp) {
       populateTriggerValueCards(whenComp, selectedValue);
     }
@@ -67,8 +181,20 @@ function openConditionalModal(relativePath) {
   }
 
   const saveBtn = document.getElementById("saveConditionalLogicBtn");
+  saveBtn.disabled = true;
   const clearBtn = document.getElementById("clearConditionalLogicBtn");
   const backBtn = document.getElementById("backFromConditionalBtn");
+
+
+  function validateSelections() {
+    const hasKey   = !!document.querySelector("#whenKeyCards .card.selected");
+    const hasValue = !!document.querySelector("#eqValueCards  .card.selected");
+    saveBtn.disabled = !(hasKey && hasValue);
+  }
+  
+  document.getElementById("whenKeyCards").addEventListener("click", validateSelections);
+  document.getElementById("eqValueCards").addEventListener("click", validateSelections);
+  
 
   if (saveBtn) {
     saveBtn.onclick = () => {
@@ -115,11 +241,17 @@ function openConditionalModal(relativePath) {
 
   modal.style.display = "block";
   overlay.style.display = "block";
+  enableModalKeys(
+      modal,               
+      null,                
+      closeConditionalModal 
+    );    
 }
 
 function closeConditionalModal() {
   const modal = document.getElementById("conditionalModal");
   const overlay = document.getElementById("overlay");
+  disableModalKeys(modal);
   if (modal) modal.style.display = "none";
   if (overlay) overlay.style.display = "none";
 }
@@ -132,6 +264,10 @@ function openMoveToModal(pathIndex) {
   modal.classList.add("super-top");
   modal._currentOverlay = overlay;
   modal.style.display = "block";
+  enableModalKeys(modal,
+          document.getElementById("optionsModalSaveBtn"),
+          null,
+          true);  
 
   /* identify the component we’re moving */
   const compToMove = getComponentByPath(pathIndex);   // <- helper from mainFormBuilder.js
@@ -168,6 +304,7 @@ function openMoveToModal(pathIndex) {
 
 function closeMoveToModal() {
   const modal = document.getElementById("moveToModal");
+  disableModalKeys(modal);
   if (!modal) return;
   modal.style.display = "none";
   modal.classList.remove("super-top");
@@ -246,6 +383,7 @@ function populateTriggerValueCards(selectedComponent, existingEqValue = null) {
 function openInputModal(callback, initialValue = "", backCallback) {
   const modal = document.getElementById("inputModal");
   const overlay = document.getElementById("overlay");
+  disableModalKeys(modal);
   if (!modal || !overlay) return;
 
   modal.classList.add("super-top");
@@ -253,9 +391,9 @@ function openInputModal(callback, initialValue = "", backCallback) {
 
   const labelInput = document.getElementById("componentLabelInput");
   labelInput.value = initialValue || "";
+    
   modal.style.display = "block";
   overlay.style.display = "block";
-
   const buttonsContainer = document.getElementById("inputModalButtons");
   buttonsContainer.innerHTML = "";
 
@@ -295,11 +433,16 @@ function openInputModal(callback, initialValue = "", backCallback) {
     };
     buttonsContainer.appendChild(backBtn);
   }
+  enableModalKeys(modal,
+          document.getElementById("surveyQuestionsModalSaveBtn"),
+          null,
+          true);
 }
 
 function closeInputModal() {
   const modal = document.getElementById("inputModal");
   const overlay = document.getElementById("overlay");
+  disableModalKeys(modal);
   if (modal) {
     modal.style.display = "none";
     modal.classList.remove("super-top");
@@ -365,6 +508,7 @@ function dictateLabelAdvanced() {
 function openOptionsModal(callback, initialTags = [], extraClass = "") {
   const modal = document.getElementById("optionsModal");
   const overlay = document.getElementById("overlay");
+  disableModalKeys(modal);
   if (!modal || !overlay) return;
 
   if (extraClass) {
@@ -396,11 +540,13 @@ function openOptionsModal(callback, initialTags = [], extraClass = "") {
       callback(currentTags.map(label => ({ label })));
     };
   }
+  enableModalKeys(modal, saveBtn);
 }
 
 function closeOptionsModal(extraClass = "") {
   const modal = document.getElementById("optionsModal");
   const overlay = document.getElementById("overlay");
+  disableModalKeys(modal);
   if (modal) {
     modal.style.display = "none";
     if (extraClass) modal.classList.remove(extraClass);
@@ -447,6 +593,7 @@ function setupOptionsTagInput(input, container, initialTags = []) {
 function openSurveyQuestionsModal(callback, initialQuestions = [], extraClass = "") {
   const modal = document.getElementById("surveyQuestionsModal");
   const overlay = document.getElementById("overlay");
+  disableModalKeys(modal);
   if (!modal || !overlay) return;
 
   if (extraClass) {
@@ -466,6 +613,8 @@ function openSurveyQuestionsModal(callback, initialQuestions = [], extraClass = 
 
   modal.style.display = "block";
   overlay.style.display = "block";
+  enableModalKeys(modal,
+       document.getElementById("surveyQuestionsModalSaveBtn"));
 
   const getSurveyQuestionsTags = setupSurveyTagInput(container, input, initialQuestions);
 
@@ -489,6 +638,7 @@ function openSurveyQuestionsModal(callback, initialQuestions = [], extraClass = 
 function closeSurveyQuestionsModal(extraClass = "") {
   const modal = document.getElementById("surveyQuestionsModal");
   const overlay = document.getElementById("overlay");
+  disableModalKeys(modal);
   if (modal) {
     modal.style.display = "none";
     if (extraClass) {
@@ -506,6 +656,7 @@ function closeSurveyQuestionsModal(extraClass = "") {
 function openSurveyOptionsModal(callback, initialOptions = [], extraClass = "") {
   const modal = document.getElementById("surveyOptionsModal");
   const overlay = document.getElementById("overlay");
+  disableModalKeys(modal);
   if (!modal || !overlay) return;
 
   if (extraClass) {
@@ -525,6 +676,11 @@ function openSurveyOptionsModal(callback, initialOptions = [], extraClass = "") 
 
   modal.style.display = "block";
   overlay.style.display = "block";
+  enableModalKeys(
+          modal,
+          document.getElementById("surveyOptionsModalSaveBtn"),
+          null,
+          true);
 
   const getSurveyOptionsTags = setupSurveyTagInput(container, input, initialOptions);
 
@@ -548,6 +704,7 @@ function openSurveyOptionsModal(callback, initialOptions = [], extraClass = "") 
 function closeSurveyOptionsModal(extraClass = "") {
   const modal = document.getElementById("surveyOptionsModal");
   const overlay = document.getElementById("overlay");
+  disableModalKeys(modal);
   if (modal) {
     modal.style.display = "none";
     if (extraClass) {
@@ -599,6 +756,7 @@ function setupSurveyTagInput(container, input, initialTags = []) {
 function closeComponentOptionsModal() {
   const modal = document.getElementById("componentOptionsModal");
   const overlay = document.getElementById("overlay");
+  disableModalKeys(modal);
   if (modal) {
     modal.style.display = "none";
   }
@@ -614,6 +772,7 @@ window.closeComponentOptionsModal = closeComponentOptionsModal;
 function openDisclaimerModal(callback, initialContent = "", extraClass = "") {
   const modal = document.getElementById("disclaimerModal");
   const overlay = document.getElementById("overlay");
+  disableModalKeys(modal);
   if (!modal || !overlay) {
     console.error("Disclaimer modal or overlay not found!");
     return;
@@ -631,6 +790,11 @@ function openDisclaimerModal(callback, initialContent = "", extraClass = "") {
 
   modal.style.display = "block";
   overlay.style.display = "block";
+  enableModalKeys(modal,
+          document.getElementById("saveDisclaimerBtn"),
+          null,
+          true);
+    
 
   const saveBtn = document.getElementById("saveDisclaimerBtn");
   if (saveBtn) {
@@ -648,6 +812,7 @@ window.openDisclaimerModal = openDisclaimerModal;
 function closeDisclaimerModal(extraClass = "") {
   const modal = document.getElementById("disclaimerModal");
   const overlay = document.getElementById("overlay");
+  disableModalKeys(modal);
   if (modal) {
     modal.style.display = "none";
     if (extraClass) {
@@ -686,11 +851,14 @@ function openLabelOptionsModal(
   initialDTMode = "datetime"
 ) {
   const modal = document.getElementById("labelOptionsModal");
+  disableModalKeys(modal);
   let selectedDTMode = initialDTMode || "datetime";
   if (!modal) {
     showNotification("Missing #labelOptionsModal in DOM!");
     return;
   }
+  _presetDetailedOptions = null;
+
 
 
   // Create a new overlay
@@ -721,6 +889,101 @@ function openLabelOptionsModal(
 const hideLabelSection = document.getElementById('hideLabelSection');
 const hideLabelToggle  = document.getElementById('hideLabelToggle');
 
+const presetsRow = document.getElementById("surveyOptionPresets");
+if (type === "survey" && presetsRow) {
+  presetsRow.style.display = "flex";
+} else if (presetsRow) {
+  presetsRow.style.display = "none";
+}
+
+presetsRow?.querySelectorAll(".preset-card")
+           .forEach(card => card.classList.remove("selected"));
+           
+           if (type === "survey" && initialSurveyOptions && initialSurveyOptions.length) {
+            const saved = initialSurveyOptions.map(o => (o.label || o).trim());
+        
+            function sameList(a, b) {
+              return a.length === b.length && a.every((v, i) => v === b[i]);
+            }
+        
+            presetsRow.querySelectorAll(".preset-card").forEach(card => {
+              const preset = card.dataset.options.split(",").map(s => s.trim());
+              if (sameList(saved, preset)) {
+                card.click();                    // re-use your existing click handler
+              }
+            });
+          }
+
+const presetRow = document.getElementById('surveyOptionPresets');
+presetRow.addEventListener('click', e => {
+  const card = e.target.closest('.preset-card');
+  if (!card) return;
+
+  /* visual highlight */
+  presetRow.querySelectorAll('.preset-card')
+           .forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+
+  /* dump plain labels into the textarea */
+  document.getElementById('surveyOptionsInputUnified').value =
+      card.dataset.options.split(',').join('\n');
+
+  /* remember full objects for Save button */
+  switch (card.dataset.options) {
+    case 'Safe,At Risk,NA':
+      _presetDetailedOptions = [
+        { label:'Safe',    value:'safe',   tooltip:'', flag:'success' },
+        { label:'At Risk', value:'atRisk', tooltip:'', flag:'danger'  },
+        { label:'NA',      value:'na',     tooltip:'', flag:''        }
+      ];
+      break;
+
+    case 'Pass,Fail,NA':
+      _presetDetailedOptions = [
+        { label:'Pass', value:'pass', tooltip:'', flag:'success' },
+        { label:'Fail', value:'fail', tooltip:'', flag:'danger'  },
+        { label:'NA',   value:'na',   tooltip:'', flag:''        }
+      ];
+      break;
+
+    case 'Yes,No,NA':
+      _presetDetailedOptions = [
+        { label:'Yes', value:'yes', tooltip:'', flag:'success' },
+        { label:'No', value:'no', tooltip:'', flag:'danger'  },
+        { label:'NA',   value:'na',   tooltip:'', flag:''        }
+      ];
+      break;  
+
+    default:
+      _presetDetailedOptions = null;  
+  }
+});
+
+
+
+/* ----- Field-set preset row ----- */
+const fsPresetRow = document.getElementById("fieldsetLabelPresets");
+fsPresetRow?.querySelectorAll(".preset-btn")
+            .forEach(b => b.classList.remove("selected"));
+if (type === "fieldset") {
+  fsPresetRow.style.display = "flex";
+} else {
+  fsPresetRow.style.display = "none";
+}
+
+fsPresetRow?.addEventListener("click", e => {
+  const btn = e.target.closest(".preset-btn");
+  if (!btn) return;
+
+  // Highlight the selected button
+  fsPresetRow.querySelectorAll(".preset-btn")
+             .forEach(b => b.classList.remove("selected"));
+  btn.classList.add("selected");
+
+  // Inject the label text
+  labelInput.value = btn.dataset.label || btn.textContent.trim();
+});
+
 // Show / hide the whole section
 if (type === 'fieldset') {
   if (hideLabelSection) hideLabelSection.style.display = 'none';
@@ -729,7 +992,12 @@ if (type === 'fieldset') {
 }
 
 /*  <<< key line – always reset the switch >>> */
-if (hideLabelToggle) hideLabelToggle.checked = !!initialHideLabel;
+if (hideLabelToggle) {
+  // Auto-enable “Hide Label” when the component type is “survey”
+  hideLabelToggle.checked = (type === 'survey')
+    ? true                 // default ON for new Survey components
+    : !!initialHideLabel;  // keep existing state for everything else
+}
 
 
   const requiredToggle = document.getElementById("requiredToggle");
@@ -747,32 +1015,42 @@ if (hideLabelToggle) hideLabelToggle.checked = !!initialHideLabel;
   const actionsToggleSection = document.getElementById('actionsToggleSection');
   const actionsToggle        = document.getElementById('actionsToggle');
 
-  if (['radio','select','selectboxes','choiceList'].includes(type)) {
-    actionsToggleSection.style.display = 'block';
-
-    if (actionsToggle) {
-      if (window._currentEditingComponent) {
-        // editing existing component: reflect its current state
-        actionsToggle.checked = !!window._currentEditingComponent._actionsDriverKey;
-      } else {
-        // new component: default actions ON
-        actionsToggle.checked = true;
-      }
-    }
-  }
-  else {
-    actionsToggleSection.style.display = 'none';
+  if (actionsToggle) {
+    actionsToggle.checked = Boolean(
+      window._currentEditingComponent &&
+      window._currentEditingComponent._actionsDriverKey
+    );
   }
 
 
 
 
 
-  // ----- Choice‑List style buttons -----
+/* ---------- Choice-List style buttons (+ Radio presets) ---------- */
 const listStyleContainer = document.getElementById('listStyleContainer');
-let selectedListStyle = null;        // ← nothing selected yet
+let   selectedListStyle  = null;         // current visual style (select / radio / selectboxes)
 
-if (type === 'choiceList' || ['select','radio','selectboxes'].includes(type)) {
+/* the row that shows the YES/NO/NA – PASS/FAIL/NA cards for Radio */
+const radioPresetRow = document.getElementById('choiceRadioPresets');
+
+/* helper → show / hide that row depending on style */
+function refreshRadioPresetRow() {
+  if (!radioPresetRow) return;
+  const show =
+        (type === 'choiceList' && selectedListStyle === 'radio')  // Radio chosen inside Choice-List
+     || (type === 'radio');                                       // editing an existing Radio component
+  radioPresetRow.style.display = show ? 'flex' : 'none';
+
+  if (!show) {
+    // clear highlight + any stored preset when row gets hidden
+    radioPresetRow.querySelectorAll('.preset-card')
+                  .forEach(c => c.classList.remove('selected'));
+    _presetRadioOptions = null;
+  }
+}
+
+if (type === 'choiceList' || ['select', 'radio', 'selectboxes'].includes(type)) {
+  /* 1 ▸ show the three style buttons ................................*/
   listStyleContainer.style.display = 'block';
 
   const lsSelect      = document.getElementById('lsSelect');
@@ -780,21 +1058,23 @@ if (type === 'choiceList' || ['select','radio','selectboxes'].includes(type)) {
   const lsSelectboxes = document.getElementById('lsSelectboxes');
   const allLS         = [lsSelect, lsRadio, lsSelectboxes];
 
-  /* 1‑A  reset previous highlights */
+  /* 1-A  reset previous highlight */
   allLS.forEach(btn => btn.classList.remove('selected'));
 
-  /* 1‑B  if editing an EXISTING component, highlight its current style */
-  if (['select','radio','selectboxes'].includes(type)) {
-    const current = { select: lsSelect, radio: lsRadio, selectboxes: lsSelectboxes }[type];
-    current.classList.add('selected');
+  /* 1-B  if we’re EDITING an existing dropdown/radio/checkbox, pre-select its style */
+  if (['select', 'radio', 'selectboxes'].includes(type)) {
+    ({ select: lsSelect,
+       radio:  lsRadio,
+       selectboxes: lsSelectboxes }[type]).classList.add('selected');
     selectedListStyle = type;
   }
 
-  /* 1‑C  click = pick */
+  /* 1-C  click = pick ..............................................*/
   function pick(btn, val) {
     allLS.forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     selectedListStyle = val;
+    refreshRadioPresetRow();               // <- keep the preset row in sync
   }
 
   lsSelect.onclick      = () => pick(lsSelect,      'select');
@@ -802,8 +1082,41 @@ if (type === 'choiceList' || ['select','radio','selectboxes'].includes(type)) {
   lsSelectboxes.onclick = () => pick(lsSelectboxes, 'selectboxes');
 
 } else {
+  /* component isn’t a Choice-List → hide everything */
   listStyleContainer.style.display = 'none';
 }
+
+/* 2 ▸ preset-card click handler (row is added in the HTML) ..........*/
+radioPresetRow?.addEventListener('click', e => {
+  const card = e.target.closest('.preset-card');
+  if (!card) return;
+
+  /* visual highlight */
+  radioPresetRow.querySelectorAll('.preset-card')
+                .forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+
+  /* dump plain labels into the textarea */
+  document.getElementById('bulkOptionsInputUnified').value =
+      card.dataset.options.split(',').join('\n');
+
+  /* remember detailed objects (Pass = success, Fail = danger) */
+  switch (card.dataset.options) {
+    case 'Pass,Fail,NA':
+      _presetRadioOptions = [
+        { label:'Pass', value:'pass', flag:'success', shortcut:'' },
+        { label:'Fail', value:'fail', flag:'danger',  shortcut:'' },
+        { label:'NA',   value:'na',   flag:'',        shortcut:'' }
+      ];
+      break;
+    default:                    // Yes / No / NA → simple labels, no flags
+      _presetRadioOptions = null;
+  }
+});
+
+/* run once on modal open */
+refreshRadioPresetRow();
+
 
 /* ---------- Number / Currency style buttons ---------- */
 const numStyleContainer = document.getElementById('numStyleContainer');
@@ -842,61 +1155,31 @@ if (type === 'number' || type === 'currency') {
 
 
 
-  // The Row 1 / Row 3 buttons (for textarea)
-  const row1Btn = document.getElementById("row1Btn");
-  const row3Btn = document.getElementById("row3Btn");
-  // Use the provided initialRows value
-  let selectedTextareaRows = initialRows;
+  // ---------- Text-area ROW selector (now only “3 rows”) ----------
+const row1Btn = document.getElementById("row1Btn");   // keep reference (we still hide it)
+const row3Btn = document.getElementById("row3Btn");
+let selectedTextareaRows = initialRows;               // ← carries existing value
 
-  if (type === "textarea") {
-    if (row1Btn) {
-      row1Btn.style.display = "inline-flex";
-      // Pre-select based on initialRows
-      if (initialRows === 1) {
-        row1Btn.classList.add("selected");
-      } else {
-        row1Btn.classList.remove("selected");
-      }
-      row1Btn.onclick = () => {
-        // Toggle off if already selected
-        if (row1Btn.classList.contains("selected")) {
-          row1Btn.classList.remove("selected");
-          selectedTextareaRows = undefined;
-        } else {
-          selectedTextareaRows = 1;
-          row1Btn.classList.add("selected");
-          if (row3Btn) row3Btn.classList.remove("selected");
-        }
-      };
-    }
-    if (row3Btn) {
-      row3Btn.style.display = "inline-flex";
-      if (initialRows === 3) {
-        row3Btn.classList.add("selected");
-      } else {
-        row3Btn.classList.remove("selected");
-      }
-      row3Btn.onclick = () => {
-        if (row3Btn.classList.contains("selected")) {
-          row3Btn.classList.remove("selected");
-          selectedTextareaRows = undefined;
-        } else {
-          selectedTextareaRows = 3;
-          row3Btn.classList.add("selected");
-          if (row1Btn) row1Btn.classList.remove("selected");
-        }
-      };
-    }
-  } else {
-    if (row1Btn) {
-      row1Btn.style.display = "none";
-      row1Btn.classList.remove("selected");
-    }
-    if (row3Btn) {
-      row3Btn.style.display = "none";
-      row3Btn.classList.remove("selected");
-    }
+if (type === "textarea") {
+  // PERMANENTLY hide the “1 row” button
+  if (row1Btn) { row1Btn.style.display = "none"; row1Btn.classList.remove("selected"); }
+
+  // Show / wire the “3 rows” button only
+  if (row3Btn) {
+    row3Btn.style.display = "inline-flex";
+    if (initialRows === 3) row3Btn.classList.add("selected");
+    row3Btn.onclick = () => {
+      // toggle between 3 rows and the default (1 row)
+      const on = row3Btn.classList.toggle("selected");
+      selectedTextareaRows = on ? 3 : undefined;
+    };
   }
+} else {
+  // If we’re editing any other type, make sure both buttons stay hidden
+  if (row1Btn) row1Btn.style.display = "none";
+  if (row3Btn) row3Btn.style.display = "none";
+}
+
 
   if (type === "datetime") {
     const btnDT = document.getElementById("dtModeDateTime");
@@ -941,23 +1224,37 @@ if (type === 'number' || type === 'currency') {
   // Survey => two textareas
   const surveyQuestionsTA = document.getElementById("surveyQuestionsInputUnified");
   const surveyOptionsTA = document.getElementById("surveyOptionsInputUnified");
+
   if (type === "survey") {
-    if (surveyQuestionsTA) {
-      const questions = (initialSurveyQuestions || []).map(q => q.label || q).filter(Boolean);
-      surveyQuestionsTA.value = questions.join("\n");
+    /* questions */
+    if (initialSurveyQuestions && initialSurveyQuestions.length) {
+      surveyQuestionsTA.value = initialSurveyQuestions
+        .map(q => (q.label || q).trim())
+        .join("\n");
+    } else {
+      surveyQuestionsTA.value = "";          // brand-new component
     }
-    if (surveyOptionsTA) {
-      const opts = (initialSurveyOptions || []).map(o => o.label || o).filter(Boolean);
-      surveyOptionsTA.value = opts.join("\n");
+
+    /* options */
+    if (initialSurveyOptions && initialSurveyOptions.length) {
+      surveyOptionsTA.value = initialSurveyOptions
+        .map(o => (o.label || o).trim())
+        .join("\n");
+    } else {
+      surveyOptionsTA.value = "";            // brand-new component
     }
-  } else {
-    if (surveyQuestionsTA) surveyQuestionsTA.value = "";
-    if (surveyOptionsTA) surveyOptionsTA.value = "";
   }
+  
 
   modal._currentOverlay = overlay;
   modal.style.display = "block";
   overlay.style.display = "block";
+  enableModalKeys(
+          modal,
+          document.getElementById("labelOptionsModalSaveBtn"),
+          null,
+          true            // allow ⏎ inside the “Label” <input> to Save
+      );
 
   // “Save” button
   const saveBtn = document.getElementById("labelOptionsModalSaveBtn");
@@ -970,13 +1267,23 @@ if (type === 'number' || type === 'currency') {
       let finalSurveyOptions = [];
 
       // If radio/select/selectboxes => parse
-      if (["radio", "select", "selectboxes", "choiceList"].includes(type) && bulkOptionsInput) {
-        const raw = bulkOptionsInput.value.trim();
-        const splitted = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-        finalOptions = splitted.map(val => ({
-          label: val,
-          value: _.camelCase(val)
-        }));
+      if (["radio","select","selectboxes","choiceList"].includes(type) && bulkOptionsInput) {
+
+        /* --- 1. any detailed preset (Pass/Fail/NA) ? ------------ */
+        if (_presetRadioOptions) {
+          finalOptions = _presetRadioOptions.map(o => ({ ...o }));   // keep flags
+        } else {
+          /* --- 2. otherwise parse the textarea ------------------- */
+          const raw = bulkOptionsInput.value.trim();
+          const splitted = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      
+          finalOptions = splitted.map(val => ({
+            label : val,
+            value : _.camelCase(val),
+            flag  : '',
+            shortcut:''
+          }));
+        }
       }
 
       // If disclaimer
@@ -986,21 +1293,31 @@ if (type === 'number' || type === 'currency') {
 
       // If survey
       if (type === "survey") {
+        /* questions (always from the textarea) */
         if (surveyQuestionsTA) {
-          const rawQuestions = surveyQuestionsTA.value.trim();
-          const splittedQ = rawQuestions.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-          finalSurveyQuestions = splittedQ.map(q => ({
-            label: q,
-            value: _.camelCase(q)
-          }));
+          finalSurveyQuestions = surveyQuestionsTA.value
+            .trim()
+            .split(/\r?\n/)
+            .map(s => s.trim())
+            .filter(Boolean)
+            .map(q => ({ label:q, value:_.camelCase(q) }));
         }
-        if (surveyOptionsTA) {
-          const rawOpts = surveyOptionsTA.value.trim();
-          const splittedO = rawOpts.split(/\r?\n|,/).map(s => s.trim()).filter(Boolean);
-          finalSurveyOptions = splittedO.map(o => ({
-            label: o,
-            value: _.camelCase(o)
-          }));
+      
+        /* options – preset first, textarea as fallback */
+        if (_presetDetailedOptions) {
+          finalSurveyOptions = _presetDetailedOptions.map(o => ({ ...o }));
+        } else if (surveyOptionsTA) {
+          finalSurveyOptions = surveyOptionsTA.value
+            .trim()
+            .split(/\r?\n|,/)
+            .map(s => s.trim())
+            .filter(Boolean)
+            .map(o => ({
+              label:o,
+              value:_.camelCase(o),
+              tooltip:'',
+              flag:''
+            }));
         }
       }
 
@@ -1041,8 +1358,71 @@ if (type === 'number' || type === 'currency') {
   }
 }
 
+function openAnswerPickModal(comp){
+  const ov  = createOverlay(1999);
+  const dlg = document.getElementById('miniPickModal') ||
+              (()=>{                       // build once
+                 const m = document.createElement('div');
+                 m.id     = 'miniPickModal';
+                 m.className = 'modal super-top';
+                 m.innerHTML =
+                   `<div class="modal-content" style="min-width:320px">
+                      <div class="modal-header">
+                        <h3>Pick correct answers</h3>
+                        <span class="close-btn">×</span>
+                      </div>
+                      <div class="modal-body" id="miniPickBody"></div>
+                      <div class="modal-buttons">
+                        <button id="miniPickSave">Save</button>
+                      </div>
+                    </div>`;
+                 document.body.appendChild(m);
+                 return m;
+              })();
+
+  dlg._ov = ov;
+  const body = dlg.querySelector('#miniPickBody');
+  body.innerHTML = '';
+
+  /* build check-/radio-list */
+  const opts = comp.type==='select'
+                 ? (comp.data?.values||[])
+                 : (comp.values||[]);
+  const multi = comp.type==='selectboxes';
+
+  opts.forEach(o=>{
+     const id = 'p_'+Math.random().toString(36).slice(2);
+     const row = document.createElement('div');
+     row.innerHTML =
+        `<input type="${multi?'checkbox':'radio'}" id="${id}">
+         <label for="${id}" style="margin-left:6px">${o.label}</label>`;
+     const inp = row.firstElementChild;
+     inp.checked = (comp.defaultValue||{})[o.value] || false;
+     inp.dataset.val = o.value;
+     body.appendChild(row);
+  });
+
+  function close(){ dlg.style.display='none'; ov.remove(); }
+  dlg.querySelector('.close-btn').onclick = close;
+
+  dlg.querySelector('#miniPickSave').onclick = () =>{
+     const sel = {};
+     body.querySelectorAll('input:checked')
+         .forEach(i=> sel[i.dataset.val]=true);
+     comp.defaultValue = sel;        // <-- stores the answer key
+     close();
+     updatePreview();
+  };
+
+  dlg.style.display = 'block';
+}
+
+
 function closeLabelOptionsModal() {
+  _presetDetailedOptions = null;
+  _presetRadioOptions = null;
   const modal = document.getElementById("labelOptionsModal");
+  disableModalKeys(modal);
   if (!modal) return;
   modal.style.display = "none";
   modal.classList.remove("super-top", "super-nested2", "super-nested3");

@@ -14,7 +14,11 @@ app.use(express.json());
 // Note: since your routes are in src/routes, use './routes/...' as the path.
 const formBuilderRoutes = require('./routes/formBuilder');
 
+app.use('/', require('./routes/library'))
+
 app.use('/', formBuilderRoutes);
+
+app.use('/api/templates', require('./routes/templates'));
 
 
 const PORT = process.env.PORT || 3000;

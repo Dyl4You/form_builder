@@ -2,6 +2,7 @@
    public/css/formBuilder.css
    ============================ */
 
+   
 /* Global Page & Font */
 html, body {
     margin: 0;
@@ -10,6 +11,7 @@ html, body {
     background-color: #2e2e2e; 
     color: #e3e3e3;
 }
+
 
 /* Container for main form area */
 .container {
@@ -143,6 +145,7 @@ pre {
     color: #e3e3e3;
 }
 
+
 /* Ensure label text can wrap, if needed */
 .component-details {
     white-space: normal;
@@ -156,43 +159,45 @@ pre {
     position: static;
     display: flex;
     gap: 8px;
-    justify-content: flex-end;
+    justify-content: flex-start;
     margin-top: 8px;
 }
 
-/* Fixed-width buttons (all 110px) */
-.component-action-btn {
-    width: 110px;
-    height: 32px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #424242;
-    border-radius: 4px;
-    cursor: pointer;
-    color: #ffffff;
-    font-size: 14px;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    transition: background-color 0.2s ease;
-}
-.component-action-btn:hover {
-    background-color: #757575;
-}
-.component-action-btn[data-action="moveup"],
-.component-action-btn[data-action="movedown"] {
-    width: 60px;
-}
+.component-actions { flex-wrap:nowrap; }
 
+/* Fixed-width buttons (all 110px) */
+.component-action-btn{
+    width: 34px;             /* small, square footprint */
+    height: 34px;
+    flex: 0 0 34px; 
+    padding: 0;
+    border-radius: 6px;      /* rounded-square look     */
+    background-color:#424242;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:0;                   /* no text → no gap        */
+    font-size:16px;          /* icon size               */
+    line-height:1;
+  }
+    .component-action-btn:hover{ background:#757575; }
+    
+    .columns-row .component-action-btn{
+        width: 30px;
+        height: 30px;
+        flex: 0 0 30px; 
+      }
+
+    .component-action-btn i{ pointer-events:none; }
 /* Hide JSON preview by default */
 #formPreview,
 h3:contains("Form JSON Preview") { 
     display: none;
 }
-#jsonPreviewContainer {
-    display: none;
+#formPreview {               
+    display:none; 
 }
+
 
 /* Fieldset container for "root" or sub-fieldsets */
 .fieldset-container {
@@ -574,3 +579,219 @@ button.card.add-fieldset-button:hover {
     border-color: #cccccc;
     color: #ffffff;
 }
+
+.btn.import-btn{
+    display:inline-block;
+    padding:0.5rem 1rem;
+    background:#007bff;
+    color:#fff;
+    border-radius:4px;
+    cursor:pointer;
+  }
+  .btn.import-btn:hover{
+    background:#0069d9;
+  }
+  
+  /* compact survey-preset buttons */
+.preset-row{
+    display:flex;
+    gap:8px;
+    margin-top:6px;
+  }
+  .preset-btn{
+    background:#333;          /* darker (matches cards) */
+    border:none;
+    padding:8px;
+    font-size:14px;
+    border-radius:8px;
+    white-space:nowrap;
+    cursor:pointer;
+  }
+  .preset-btn:hover{
+    background:#616161;       /* mid-grey on hover */
+  }
+  .preset-btn.selected{
+    background:#616161;       /* light grey while selected */
+  }
+  
+/* ——— library page layout ——— */
+body.library{
+    display:flex;              /* let the body act as a flex‑box */
+    justify-content:center;    /* centre horizontally */
+    padding-top:50px;          /* same top spacing the builder has */
+    min-height:100vh;          /* makes the centring stable */
+  }
+  body.library .container{
+    width:900px;               /* exact width of the builder panel */
+  }
+  
+  .card .delete-btn,
+.folder-delete-btn{
+  cursor:pointer;
+  font-size:.8rem;
+  color:#c33;
+  user-select:none;
+}
+.card{position:relative;}
+.card .delete-btn{position:absolute;top:4px;right:6px;}
+
+/* ─────────────────────────────
+   Library page: minimal tweaks
+   ───────────────────────────── */
+   body.library .card-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;        /* small gutter between cards */
+  }
+  
+  body.library .card {
+    position: relative;  /* so our × can sit inside */
+    white-space: nowrap;
+  }
+  
+  /* the white × delete button */
+  body.library .delete-btn,
+  body.library .folder-delete-btn {
+    color: #fff;         /* always white */
+    font-size: 0.9rem;   /* same as your builder labels */
+    cursor: pointer;
+    user-select: none;
+  }
+  
+  /* hide until hover */
+  body.library .card .delete-btn {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  body.library .card:hover .delete-btn {
+    opacity: 1;
+  }
+  
+  /* folder “×” inline with the heading */
+  body.library .folder-delete-btn {
+    margin-left: 0.5rem;
+    vertical-align: middle;
+    opacity: 0.6;
+    transition: opacity 0.15s ease;
+  }
+  body.library .folder-delete-btn:hover {
+    opacity: 1;
+  }
+  
+  
+  .component-card       { cursor: grab;    }
+  .component-card:active{ cursor: grabbing;}
+  
+
+
+  .comp-label[contenteditable="true"]{
+    outline:none;     /* ⟵ no border */
+    background:none;  /* ⟵ no grey box */
+    padding:0;        /* ⟵ no extra space */
+  }
+
+  .columns-row{
+    display:flex;
+    gap:8px;                   /* space between the halves               */
+    margin-bottom:10px;        /* same bottom margin as normal cards     */
+}
+
+.columns-row .component-card{
+    flex:1 1 0;                /* perfect 50 % (or 33 %) width           */
+    margin:0;                  /* all spacing lives on the row itself    */
+}
+
+/* make the inner edges square so the two halves look like one card */
+.columns-row .component-card:first-child  { border-top-right-radius:0; border-bottom-right-radius:0; }
+.columns-row .component-card:last-child   { border-top-left-radius:0;  border-bottom-left-radius:0;  }
+
+/* optional – ensure placeholders visually match real cards */
+.component-card.placeholder{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    opacity:.6;
+    font-style:italic;
+}
+
+  
+
+  #componentList,
+.columns-row{ user-select:none; }
+
+/* ghost + chosen = take the same half-width as a normal card */
+.columns-row .drag-ghost,
+.columns-row .drag-chosen {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+}
+
+/* dashed empty slot */
+.columns-row .component-card.placeholder{
+    flex: 1 1 0;
+    height: 60px;          /* same height as a real card */
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 2px dashed #616161;
+    border-style: dashed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:#2c2c2c;
+    color:#757575;
+
+    transition:
+    flex-basis   .18s ease,
+    max-width    .18s ease,
+    opacity      .18s ease;          /* quick-but-smooth */
+}
+
+
+
+  
+.columns-row:has(.drag-ghost) .component-card.placeholder,
+.columns-row.dragging         .component-card.placeholder{
+  flex:     0 0 0   !important;      /* collapse width   */
+  max-width:0       !important;
+  opacity:  0;
+  pointer-events:none;               /* just in case     */
+}
+
+.component-action-btn.col-2,
+.component-action-btn.col-3{
+  position: relative;
+}
+
+/* shared tiny badge */
+.col-badge{
+  position:absolute;
+  right:3px;
+  bottom:3px;
+  font-size:9px;
+  line-height:1;
+  font-weight:600;
+  pointer-events:none;   /* badge never steals clicks */
+}
+
+.list-tail-dropzone{
+    height:40px;
+  }
+
+
+  /* smooth size & opacity changes during drag-and-drop */
+.columns-row .component-card          { transition: flex-basis .28s ease, opacity .18s ease; }
+.columns-row .component-card.placeholder { opacity: .35; }   /* resting opacity */
+.drag-ghost                           { opacity: .65 !important; }
+
+
+.answer-board      { margin:4px 0 12px; }
+.answer-row        { margin:4px 0; display:flex; gap:6px; align-items:center; }
+.answer-row strong { min-width:140px; }
+.pill              { cursor:pointer; padding:3px 10px; border:1px solid #888;
+                     border-radius:12px; user-select:none; font-size:12px; }
+.pill.on           { background:#3c8; color:#000; border-color:#3c8; }

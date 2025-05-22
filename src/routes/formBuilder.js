@@ -8,7 +8,7 @@ router.get('/formbuilder', (req, res) => {
   const componentTypes = [
     "disclaimer", "textfield", "textarea", "account", "choiceList", "survey",
     "selectboxes", "select", "file", "phoneNumber",
-    "address", "asset", "datetime", "number", "currency"
+    "address", "asset", "datetime", "number", "currency", 'editgrid','quiz'
   ];
 
   // Build the HTML for the type cards.
@@ -22,16 +22,30 @@ router.get('/formbuilder', (req, res) => {
   <html lang="en">
   <head>
       <meta charset="UTF-8">
-      <!-- Load Lodash from CDN -->
-      <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
-      <!-- External CSS -->
+      <title>Form Builder</title>
+
+      <!-- lodash + Sortable -->
+      <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js" defer></script>
+
+
+      <!-- Font‑Awesome (fixed digest: 6.5.1) -->
+      <link rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+            integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+            crossorigin="anonymous" referrerpolicy="no-referrer">
+
+      <!-- Builder styles -->
       <link rel="stylesheet" href="/css/formBuilder.css" />
+
+<svg id="icon-comment" style="display:none" viewBox="0 0 24 24"
+     xmlns="http://www.w3.org/2000/svg">
+  <path fill="currentColor"
+        d="M21 6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12l4 4-.01-16Z"/>
+</svg>
   </head>
   <body>
     <div class="wrapper">
       <div class="container">
-        
-             
         <!-- Component Type Section -->
         <label>Component Type:</label>
         <div id="componentTypeContainer" class="card-container" style="margin-bottom: 2rem;">
@@ -65,17 +79,49 @@ router.get('/formbuilder', (req, res) => {
         <div id="componentList"></div>
 
         <!-- JSON Preview -->
-        <div id="jsonPreviewContainer" style="margin-top: 2rem;">
-          <h3>Form JSON Preview</h3>
+      <div id="jsonPreviewContainer" style="margin-top: 2rem;">
           <pre id="formPreview"></pre>
-        </div>
-
-        <button id="copyJsonBtn" style="margin-top: 1rem;">Copy JSON</button>
+          <!-- Buttons row (50 / 50) -->
+          <div style="display:flex; gap:10px; margin-top:1rem;">
+            <button id="saveTemplateBtn"  style="flex:1;">Save Template</button>
+            <button id="copyJsonBtn"      style="flex:1;">Copy JSON</button>
+            <button id="importJsonBtn"    style="flex:1;">Import JSON</button>
+          </div>  
+          </div>
+          </div>
       </div>
     </div>
 
     <!-- Dark overlay for modals -->
     <div id="overlay" class="overlay"></div>
+
+    <div id="colChooser" class="mini-chooser" style="display:none;
+         position:fixed; z-index:2001; left:50%; top:50%;
+         transform:translate(-50%,-50%); background:#fff;
+         border-radius:6px; padding:18px 22px; box-shadow:0 3px 12px rgba(0,0,0,.25)">
+      <p style="margin:0 0 10px 0; font-weight:600;">Wrap into how many columns?</p>
+      <div style="display:flex; gap:12px; justify-content:center;">
+        <button class="colPickBtn row-button" data-cols="2">2</button>
+        <button class="colPickBtn row-button" data-cols="3">3</button>
+      </div>
+    </div>
+
+    <div id="importJsonModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Paste or Edit JSON</h3>
+        <span class="close-btn" onclick="closeImportJsonModal()">×</span>
+      </div>
+      <div class="modal-body">
+        <textarea id="importJsonTextarea"
+                  style="width:100%;height:200px;"
+                  placeholder='{ "components": [ … ] }'></textarea>
+      </div>
+      <div class="modal-buttons">
+        <button id="importJsonLoadBtn">Load JSON</button>
+      </div>
+    </div>
+  </div>
 
     <!-- Unified Label & Options Modal -->
     <div id="labelOptionsModal" class="modal">
@@ -87,15 +133,30 @@ router.get('/formbuilder', (req, res) => {
         <div class="modal-body">
           <label>Component Label:</label>
           <input id="labelOptionsLabelInput" type="text" placeholder="Enter label" />
+
+          <div id="fieldsetLabelPresets" class="preset-row" style="display:none;">
+            <button type="button"
+                    class="preset-btn"
+                    data-label="General Information">
+              General Information
+            </button>
+          </div>
           
           <!-- Options Section (for radio/select/selectboxes) -->
-          <div id="optionsSection" style="display: none; margin-top: 15px;">
+          <div id="optionsSection" style="display:none; margin-top:15px;">
             <label>Options:</label>
-            <textarea
-              id="bulkOptionsInputUnified"
-              placeholder=""
-              style="width: 100%; height: 100px;"
-            ></textarea>
+            <textarea id="bulkOptionsInputUnified"
+                      style="width:100%; height:100px;"></textarea>
+
+            <!-- NEW – Choice-List (Radio) presets -->
+            <div id="choiceRadioPresets"
+                 class="card-container"
+                 style="display:none; margin-top:6px;">
+              <div class="card preset-card"
+                   data-options="Yes,No,NA">Yes / No / NA</div>
+              <div class="card preset-card"
+                   data-options="Pass,Fail,NA">Pass / Fail / NA</div>
+            </div>
           </div>
 
           <!-- Disclaimer Section -->
@@ -110,20 +171,24 @@ router.get('/formbuilder', (req, res) => {
           </div>
 
           <!-- Survey Section -->
-          <div id="surveySection" style="display: none; margin-top: 15px;">
+          <div id="surveySection" style="display:none; margin-top:15px;">
             <label>Survey Questions</label>
-            <textarea
-              id="surveyQuestionsInputUnified"
-              placeholder=""
-              style="width: 100%; height: 100px;"
-            ></textarea>
+            <textarea id="surveyQuestionsInputUnified"
+                      style="width:100%; height:100px;"></textarea>
 
-            <label style="margin-top: 15px;">Survey Options</label>
-            <textarea
-              id="surveyOptionsInputUnified"
-              placeholder=""
-              style="width: 100%; height: 100px;"
-            ></textarea>
+            <label style="margin-top:15px;">Survey Options</label>
+            <textarea id="surveyOptionsInputUnified"
+                      style="width:100%; height:100px;"></textarea>
+
+            <!-- ✱ NEW compact buttons — sits *after* the textarea -->
+            <div id="surveyOptionPresets" class="card-container" style="margin-top:6px;">
+              <div class="card preset-card"
+                   data-options="Safe,At Risk,NA">Safe / At Risk / NA</div>
+              <div class="card preset-card"
+                   data-options="Pass,Fail,NA">Pass / Fail / NA</div>
+              <div class="card preset-card"
+                   data-options="Yes,No,NA">Yes / No / NA</div>
+            </div>
           </div>
 
           <div id="togglesRow" style="margin-top:15px;display:none;display:flex;align-items:center;gap:40px;">
@@ -210,7 +275,6 @@ router.get('/formbuilder', (req, res) => {
         <div class="modal-buttons">
           <button id="saveConditionalLogicBtn">Save</button>
           <button id="clearConditionalLogicBtn">Clear Trigger</button>
-          <button id="backFromConditionalBtn">Back</button>
         </div>
       </div>
     </div>
@@ -314,12 +378,69 @@ router.get('/formbuilder', (req, res) => {
       </div>
     </div>
 
+    <!-- Auto-calculate modal (one-click version) -->
+    <div id="calcModal" class="modal">
+      <div class="modal-content" style="min-width:430px;">
+        <div class="modal-header">
+          <h3>Auto-calculate Value</h3>
+          <span class="close-btn" onclick="closeCalcModal()">×</span>
+        </div>
+
+        <div class="modal-body">
+
+          <label>Operator</label>
+          <div id="opRow" style="display:flex;gap:8px;margin-bottom:18px;">
+            <button class="row-button op-btn" data-op="+">+</button>
+            <button class="row-button op-btn" data-op="-">−</button>
+            <button class="row-button op-btn" data-op="*">×</button>
+            <button class="row-button op-btn" data-op="/">÷</button>
+          </div>
+
+          <label>Field A</label>
+          <div id="leftCards"  class="card-container" style="margin-bottom:18px;"></div>
+
+          <label>Field B (optional)</label>
+          <div id="rightCards" class="card-container"></div>
+
+        </div>
+
+        <div class="modal-buttons">
+          <button id="calcSaveBtn" disabled>Save Formula</button>
+        </div>
+      </div>
+    </div>
+
+
+
+    <!-- Save Template Modal -->
+    <div id="saveTplModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Save Template</h3>
+          <span class="close-btn" onclick="closeSaveTplModal()">×</span>
+        </div>
+        <div class="modal-body">
+          <label>Name:</label>
+          <input id="tplNameInput" type="text" placeholder="Template name">
+
+          <label style="margin-top:15px;">Folder:</label>
+          <div id="folderPickRow" class="card-container" style="margin-top:8px;"></div>
+        </div>
+        <div class="modal-buttons">
+          <button id="confirmSaveTplBtn">Save</button>
+        </div>
+      </div>
+    </div>
+
+
     <!-- Script includes -->
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
     <script src="/js/uniqueKeys.js"></script>
     <script src="/js/dataHelpers.js"></script>
     <script src="/js/modalHelpers.js"></script>
     <script src="/js/createComponent.js"></script>
     <script src="/js/mainFormBuilder.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   </body>
   </html>
   `;
