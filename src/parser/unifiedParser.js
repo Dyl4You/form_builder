@@ -1,7 +1,5 @@
 // src/parser/unifiedParser.js
 const _ = require('lodash');
-const db = require('../db/db');
-
 // The token that triggers building a multi-question survey from lines with "[inspection]"
 const INSPECTION_TOKEN = '[inspection]';
 
