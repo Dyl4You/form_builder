@@ -87,7 +87,7 @@ function getAllComponents(arr = []) {
  */
 function findFieldsetByKey(components, key) {
   for (let comp of components) {
-    if (['fieldset', 'editgrid', 'columns', 'quiz'].includes(comp.type) && comp.key === key) {
+    if (['fieldset', 'editgrid', 'columns'].includes(comp.type) && comp.key === key) {
       return comp;
     }
     if (Array.isArray(comp.components) && comp.components.length) {
@@ -124,6 +124,16 @@ function removeComponentAtPath(path) {
 
   // 3 · remove the component itself
   parentArray.splice(Number(path), 1);
+
+
+const ownerFS = findAncestorQuiz(selectedFieldsetKey);
+if(ownerFS){
+  const grid = ownerFS.components.find(c=>c.key.startsWith('answerKey'));
+  if(grid && grid.type==='datagrid'){
+    grid.defaultValue =
+      grid.defaultValue.filter(r=>r.question!==comp.label);
+  }
+}
 
   // 4 · tidy up driver numbering
   if (window.compactActionBundles) {
@@ -205,36 +215,6 @@ function registerExistingKeys(components) {
   });
 }
 
-/* ─── Quiz helper ────────────────────────────────────────── */
-function syncAnswerKey(quizFS){
-  const answerFS = quizFS.components.find(c => c.key.startsWith('answerKey'));
-  if (!answerFS) return;
-
-  /* collect every *question* inside the quiz (excluding helper bits) */
-  const questions = quizFS.components.filter(c =>
-    !c.builderHidden && ['selectboxes','radio','select'].includes(c.type));
-
-  /* rebuild the answer-key panel */
-  answerFS.components = questions.map(q => {
-    /* clone options */
-    const opts = (q.type === 'select')
-                   ? (q.data?.values || [])
-                   : (q.values       || []);
-
-    return {
-      label                : q.label || q.key,
-      key                  : q.key + '_a',
-      type                 : q.type,          // radio ↔ selectboxes stays
-      inputType            : q.inputType || 'checkbox',
-      inline               : q.inline || false,
-      optionsLabelPosition : 'right',
-      values               : opts.map(o => ({...o})),
-      data                 : q.type==='select' ? { values: opts.map(o=>({...o})) } : undefined,
-      tableView            : false
-    };
-  });
-}
-window.syncAnswerKey = syncAnswerKey;   // expose
 
 
 // Immediately register all of formJSON's existing keys:

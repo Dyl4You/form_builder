@@ -2,6 +2,7 @@
  * public/js/mainFormBuilder.js
  ****************************************************/
 
+const openMenuKeys = new Set();
 
 // ─── Calculation catalogue  +  expression builder (★ NEW) ────────────
 const CALC_OPS = {
@@ -49,6 +50,375 @@ function buildExpression({ op, fields }) {
   return `value = ${js}`;
 }
 
+function handleDelete(cardEl, path) {
+
+  /* ---------- A ▸ card nested inside a Columns shell ---------- */
+  if (cardEl.dataset.ownerKey) {
+    const wrapperKey = cardEl.dataset.ownerKey;
+    const colIdx     = Number(cardEl.dataset.col);
+
+    /* 1 ▸ pull the component out of the column */
+   const removed = removeComponentInColumn(
+      cardEl.dataset.ownerKey,
+      Number(cardEl.dataset.col),
+      false                               // ← keep the column, show placeholder
+    );
+    if (!removed) return;                               // should never happen
+
+    /* 2 ▸ find the parent array that contains the wrapper */
+    const destArr = (selectedFieldsetKey === 'root')
+      ? formJSON.components
+      : findFieldsetByKey(formJSON.components,
+                          selectedFieldsetKey).components;
+
+    /* 3 ▸ locate the wrapper itself in that array */
+    const wIdx = destArr.findIndex(c => c.key === wrapperKey);
+    /* 4 ▸ insert the removed component *after* the wrapper */
+    destArr.splice(wIdx + 1, 0, removed);
+
+    updatePreview();
+    return;
+  }
+
+  /* ---------- B ▸ normal top-level card ------------------------ */
+  removeComponentAtPath(path);          // already calls updatePreview()
+}
+
+
+/*─────────────────────────────────────────────────────────────*/
+/*  QUIZ HELPERS                                               */
+/*─────────────────────────────────────────────────────────────*/
+function isQuizFieldset(fs){ return fs && fs.customType === 'quiz'; }
+
+function addRowToAnswerKey(quizFS, cmp){
+  const grid = quizFS.components.find(c=>c.key.startsWith('answerKey'));
+  if(!grid || grid.type!=='datagrid') return;
+
+  const label = (cmp.label||'').trim();
+  const key   = cmp.key;
+
+  // radio / dropdown → store label *and* current selected value
+  grid.defaultValue.push({
+    question : label,
+    answer   : cmp.type==='select' || cmp.type==='radio'
+                 ? (cmp.data?.values?.[0]?.label || '')   // empty until user picks
+                 : ''
+  });
+}
+
+
+/* Return the *label* that matches cmp.defaultValue, or "" */
+function getAnswerLabelFromDefault(cmp){
+  if (!cmp.defaultValue) return '';
+  if (cmp.type === 'select' || cmp.type === 'radio'){
+    const opt = (cmp.data?.values || cmp.values || [])
+                  .find(v => v.value === cmp.defaultValue);
+    return (opt ? opt.label : '');
+  }
+  return '';
+}
+
+/* create-or-update the datagrid row */
+function syncAnswerKeyRow(quizFS, cmp){
+  const grid = quizFS.components.find(c => c.key.startsWith('answerKey'));
+  if (!grid) return;
+  const qLabel = (cmp.label || '').trim();
+
+  let row = grid.defaultValue.find(r => r.question === qLabel);
+  if (!row){
+    row = { question:qLabel, answer:'' };
+    grid.defaultValue.push(row);
+  }
+  row.answer = getAnswerLabelFromDefault(cmp);
+}
+
+
+function findAncestorQuiz(fsKey){
+  const fs = findFieldsetByKey(formJSON.components, fsKey);
+  return isQuizFieldset(fs) ? fs : null;
+}
+
+
+
+
+/* ————————————————————————————————
+   Single handler for the component-type cards
+   — called whenever a .card in #componentTypeContainer is clicked
+————————————————————————————————————— */
+function onTypeCardClick(e) {
+  const card = e.target.closest(".card");
+  if (!card) return;
+
+  const typeContainer = document.getElementById("componentTypeContainer");
+  if (!typeContainer) return;
+
+  const chosenType = card.dataset.type;
+
+  const clearTypeSelection = () => {
+    typeContainer.querySelectorAll(".card.selected")
+                 .forEach(c => c.classList.remove("selected"));
+  };
+
+  /* highlight the tapped card */
+  typeContainer.querySelectorAll(".card").forEach(c =>
+    c.classList.toggle("selected", c === card)
+  );
+
+  /* ─ 2 · one-click components ─ */
+ const oneClick = new Set([
+   "textarea","account","file","phoneNumber",
+   "address","asset","datetime",
+   /* number / currency removed so they go through the modal */
+   "fieldset"
+ ]);
+
+  if (oneClick.has(chosenType)) {
+    const cmp     = createComponent(chosenType);
+    const destArr = (selectedFieldsetKey === "root")
+        ? formJSON.components
+        : findFieldsetByKey(formJSON.components, selectedFieldsetKey).components;
+    destArr.push(cmp);
+   const quizFS = findAncestorQuiz(selectedFieldsetKey);
+if (quizFS && ['select','radio'].includes(chosenType)){
+addRowToAnswerKey(quizFS, cmp);
+ }
+showNotification('Component added', 'info'); // 👈 new line
+updatePreview();
+
+    updatePreview();
+
+    /* auto-enter inline-edit on its label */
+    requestAnimationFrame(() => {
+      const span = document.querySelector(
+        `.component-card[data-key="${cmp.key}"] .comp-label`
+      );
+      span?.dispatchEvent(new MouseEvent("dblclick", { bubbles:true }));
+    });
+    clearTypeSelection();
+    return;
+  }
+
+  /* ─ 3 · block unsupported inside Edit-Grid ─ */
+  const fs = findFieldsetByKey(formJSON.components, selectedFieldsetKey);
+  if (fs && fs.type === "editgrid") {
+    const banned = ["survey","file","fieldset","editgrid"];
+    if (banned.includes(chosenType)) {
+      card.classList.remove("selected");
+      return;
+    }
+  }
+
+
+
+  else if (chosenType === "quiz") {
+  openLabelOptionsModal(
+    (
+      label,       /* we only use the first 5 params */
+      _opts, _disc, _sQ, _sO,
+      hideLbl, _req, _rows,
+      _dt, _style,           // 10
+      _actions,
+      _def,                  // dummy
+      passMark               // ★ the 13-th arg (see modal’s callback)
+    ) => {
+      /* build the quiz including Pass-Mark */
+      const cmp = createComponent('quiz', label, [], hideLbl, passMark);
+
+      const destArr = selectedFieldsetKey === 'root'
+        ? formJSON.components
+        : findFieldsetByKey(formJSON.components, selectedFieldsetKey).components;
+
+      destArr.push(cmp);
+      updatePreview();
+    },
+    'quiz',        // type
+    '', [], '', [], [],          // unused params stay empty
+    false, true, undefined,      // hideLabel / required / rows
+    'datetime', undefined,       // dtMode / style
+    false, [], [],               // actions / speed placeholders
+    undefined,                           // defaultVal (unused here)
+    undefined                            // initialPassMark (new last arg)
+  );
+  clearTypeSelection();
+  return;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   SPEED  ➜  generates a plain Grouping with one radio per line
+   ────────────────────────────────────────────────────────────── */
+else if (chosenType === "speed") {
+  // Always start with a clean slate for presets
+  _presetRadioOptions = null;
+
+  openLabelOptionsModal((
+      groupLabel,                  // “Component Label” field
+      _opts, _disc, _sQ, _sO,
+      hideGrpLabel,                // Hide-Label toggle
+      isRequired,                  // Required toggle
+      _rows, _dtMode, _style,
+      actionsEnabled,              // Actions toggle
+      speedLabels,                 // textarea ①
+      speedValues                  // textarea ②
+    ) => {
+
+    /* ── 0 · normalise the two text-areas ───────────────────── */
+    speedLabels = (speedLabels || []).map(s => s.trim()).filter(Boolean);
+    speedValues = (speedValues || []).map(s => s.trim());
+
+    if (speedLabels.length === 0) {
+      alert("Please enter at least one Speed Label.");
+      return;
+    }
+
+    // Ensure the two lists are the same length
+    if (speedValues.length > speedLabels.length) {
+      speedValues.length = speedLabels.length;     // truncate extras
+    }
+    while (speedValues.length < speedLabels.length) speedValues.push("");
+
+    /* ── 1 · create the outer Grouping ──────────────────────── */
+    const groupingFS = createComponent("fieldset", groupLabel);
+
+    // Only apply optional switches when the user checked them
+    if (hideGrpLabel)                groupingFS.hideLabel = true;
+    if (!isRequired)                 groupingFS.validate.required = false;
+
+    groupingFS.legend = groupLabel;  // legend always mirrors the label
+
+    /* ── 2 · radio builder helper ───────────────────────────── */
+    const defaultRadioOpts = [
+      { label:"Yes", value:"yes", flag:"success", shortcut:"" },
+      { label:"No",  value:"no",  flag:"danger",  shortcut:"" },
+      { label:"N/A",  value:"nA",  flag:"",        shortcut:"" }
+    ];
+
+    /* ── 3 · one radio (+ optional Actions) per label ───────── */
+    speedLabels.forEach((lbl, idx) => {
+      const keyBase = speedValues[idx] || lbl;
+
+      const radio = createComponent(
+        "radio",
+        lbl,
+        (_presetRadioOptions || defaultRadioOpts).map(o => ({ ...o }))
+      );
+
+      radio.key         = ensureGloballyUniqueKey(_.camelCase(keyBase));
+      radio.__origValue = keyBase.trim();
+
+      // Propagate the Required toggle only if it was set
+      if (!isRequired) radio.validate.required = false;
+
+      groupingFS.components.push(radio);
+
+      if (actionsEnabled) {
+        toggleActionsBundle(groupingFS.components, true, radio);
+      }
+    });
+
+    /* ── 4 · park the Grouping in the current destination ───── */
+    const destArr =
+      selectedFieldsetKey === "root"
+        ? formJSON.components
+        : findFieldsetByKey(formJSON.components, selectedFieldsetKey).components;
+
+    destArr.push(groupingFS);
+    updatePreview();
+  }, "speed");          // ← tell the modal we’re in “speed” mode
+
+  clearTypeSelection();
+  return;
+}
+
+
+
+
+const initialActionsEnabled = false;
+
+  /* ─ 4 · everything else needs the modal ─ */
+  openLabelOptionsModal(
+    (label, options, disclaimerText, sQ, sO,
+ finalHideLabel, finalRequired, finalRows,
+ selectedDTMode, styleOrDT,
+ actionsEnabled,
+ incomingDefault,
+ passMark) => {
+      let typeToUse = chosenType;
+      if (typeToUse === "choiceList") typeToUse = styleOrDT;
+      if (typeToUse === "number")     typeToUse = styleOrDT;
+
+ const cmp = createComponent(
+     typeToUse,               // type
+     label,                   // label
+     options || [],           // options
+     finalHideLabel,          // hide label?
+     typeToUse === 'quiz' ? passMark : incomingDefault 
+ );
+if (incomingDefault !== undefined) {
+    cmp.defaultValue = incomingDefault;        // keep NaN / 0 / any number
+  } else {
+    delete cmp.defaultValue;                   // user cleared the box
+  }
+      cmp.validate = cmp.validate || {};
+      cmp.validate.required = !!finalRequired;
+
+      if (typeToUse === "survey") {
+        cmp.questions = ensureUniqueValues(sQ);
+        cmp.values    = ensureUniqueValues(sO);
+      }
+      if (typeToUse === "disclaimer") {
+        cmp.customType = "disclaimer";
+        cmp.html = disclaimerText.startsWith("<p")
+          ? disclaimerText
+          : `<p>${disclaimerText}</p>`;
+      }
+      if (typeToUse === "textarea") {
+        cmp.rows = finalRows || 1;
+        cmp.labelWidth  = 30;
+        cmp.labelMargin = 3;
+        cmp.autoExpand  = true;
+        cmp.reportable  = true;
+        cmp.tableView   = true;
+      }
+      if (typeToUse === "datetime") {
+        cmp.__mode = selectedDTMode;
+        tweakDateTimeMode(cmp, selectedDTMode);
+      }
+
+      const destArr = (selectedFieldsetKey === "root")
+          ? formJSON.components
+          : findFieldsetByKey(formJSON.components, selectedFieldsetKey).components;
+
+      destArr.push(cmp);
+      const quizFS = findAncestorQuiz(selectedFieldsetKey);
+if (quizFS && ['select','radio'].includes(typeToUse)) {
+  syncAnswerKeyRow(quizFS, cmp);          // util below
+}
+      toggleActionsBundle(destArr, actionsEnabled, cmp);
+      updatePreview();
+
+      /* clear highlight */
+      typeContainer.querySelectorAll(".card").forEach(c =>
+        c.classList.remove("selected")
+      );
+    },
+chosenType,          // type
+  "",                  // initialLabel
+  [],                  // initialOptions
+  "",                  // initialDisclaimer
+  [], [],              // initialSurvey Q / A
+  false,               // initialHideLabel
+  true,                // initialRequired
+  undefined,           // initialRows
+  "datetime",          // initialDTMode
+  undefined,           // initialStyleOrDT  (was styleOrDT ❌)
+  initialActionsEnabled,
+  [], [],              // speed placeholders
+  undefined,
+  undefined               
+);
+}
+
+
 /**
  * Gathers "containers" (both fieldsets and editgrids) from the form,
  * sets up fieldset selection, etc.
@@ -58,7 +428,7 @@ function gatherFieldsets(components, fieldsets = []) {
     // If this is the special nested fieldset inside an Edit Grid, skip adding it
     const isNestedFieldset = comp.type === "fieldset" && comp.isEditGridChildFieldset;
 
-    const isContainer = ['fieldset','editgrid','quiz'].includes(comp.type);  
+    const isContainer = ['fieldset','editgrid'].includes(comp.type);  
     if (isContainer && !isNestedFieldset && !comp.builderHidden) {
       fieldsets.push(comp);
     }
@@ -158,7 +528,10 @@ function attachInnerSortables() {
 
         /* rebuild the action buttons so ‘wrap-in-2/3’ re-appear */
         const actions = item.querySelector(".component-actions");
-        if (actions) actions.innerHTML = actionButtonsHTML(true);
+  if (actions) {
+    const meta = findCompByKey(formJSON.components, item.dataset.key);
+    actions.innerHTML = actionButtonsHTML(true, meta);
+  }
       },
 
       /* ---------------------------------------------------------
@@ -259,36 +632,115 @@ function attachInnerSortables() {
 }
 
 
-function actionButtonsHTML(showColumn = true) {
-  return `
+function actionButtonsHTML(showColumn = true, comp = null) {
+
+  /* ── context helpers ─────────────────────────────────────────────── */
+  const isNumeric = comp && ['number', 'currency'].includes(comp.type);
+
+  // Answer-Key button (only on the quiz datagrid)
+  const akBtn = (comp &&
+                 comp.type === 'datagrid' &&
+                 comp.key.startsWith('answerKey')) ?
+      `<button class="component-action-btn" data-action="akey"
+               title="Edit Answer-Key">
+         <i class="fa-solid fa-table-list"></i>
+       </button>` : '';
+
+  // Calculator (only on Number / Currency)
+  const calcBtn = isNumeric
+      ? `<button class="component-action-btn" data-action="calc" title="Calculator">
+           <i class="fa-solid fa-calculator"></i>
+         </button>`
+      : '';
+
+  /* toggle states for Required / Hide Label / Actions  */
+  const reqOn  = comp?.validate?.required ? ' on' : '';
+  const hideOn = comp?.hideLabel          ? ' on' : '';
+  const actOn  = comp?._actionsDriverKey  ? ' on' : '';
+
+  /* ── LEFT cluster ────────────────────────────────────────────────── */
+  const left = `
     <button class="component-action-btn" data-action="delete" title="Delete">
       <i class="fa-solid fa-trash"></i>
     </button>
     <button class="component-action-btn" data-action="moveto" title="Move To">
       <i class="fa-solid fa-arrow-right-arrow-left"></i>
     </button>
-    <button class="component-action-btn" data-action="edit"   title="Edit">
+    <button class="component-action-btn" data-action="edit" title="Edit">
       <i class="fa-solid fa-pen"></i>
     </button>
     <button class="component-action-btn" data-action="conditional" title="Conditional">
       <i class="fa-solid fa-code-branch"></i>
     </button>
-    ${
-      showColumn
-        ? `
-          <button class="component-action-btn"
-                  data-action="wrap2"
-                  title="Wrap in 2 columns">
-            <i class="fa-solid fa-columns"></i>
-          </button>
-          `
-        : ""
-    }
-    <button class="component-action-btn" data-action="calc" title="Calculate Value">
-      <i class="fa-solid fa-calculator"></i>
-    </button>
+    ${ showColumn ? `
+      <button class="component-action-btn" data-action="wrap2" title="Wrap in 2 columns">
+        <i class="fa-solid fa-table-columns"></i>
+      </button>` : '' }
+    ${ akBtn }
   `;
+
+  /* ── RIGHT cluster (slide-out) ───────────────────────────────────── */
+  const dtBtns = comp && (comp.type === 'datetime' || comp.customType === 'datetime') ? `
+      <button class="component-action-btn dt-btn${(comp.__mode||'datetime')==='datetime'?' on':''}"
+              data-action="dtmode" data-mode="datetime" title="Date & Time">
+        <i class="fa-regular fa-calendar-check"></i>
+      </button>
+      <button class="component-action-btn dt-btn${(comp.__mode||'datetime')==='date'?' on':''}"
+              data-action="dtmode" data-mode="date" title="Date">
+        <i class="fa-regular fa-calendar"></i>
+      </button>
+      <button class="component-action-btn dt-btn${(comp.__mode||'datetime')==='time'?' on':''}"
+              data-action="dtmode" data-mode="time" title="Time">
+        <i class="fa-regular fa-clock"></i>
+      </button>` : '';
+
+  const numBtns = isNumeric ? `
+      <button class="component-action-btn num-btn${comp.type==='number'?' on':''}"
+              data-action="nummode" data-mode="number" title="Plain Number">
+        <i class="fa-solid fa-hashtag"></i>
+      </button>
+      <button class="component-action-btn num-btn${comp.type==='currency'?' on':''}"
+              data-action="nummode" data-mode="currency" title="Currency">
+        <i class="fa-solid fa-dollar-sign"></i>
+      </button>` : '';
+
+  const right = `
+    <div class="right-actions">
+      <!-- anchor that’s always visible -->
+      <button class="component-action-btn anchor-btn" title="More">
+        <i class="fa-solid fa-ellipsis-h"></i>
+      </button>
+
+      <!-- slide-out -->
+      <div class="extra-actions">
+        ${dtBtns}
+        ${numBtns}
+        ${calcBtn}
+        ${ comp?.type === 'textarea' ? `
+          <button class="component-action-btn rows-btn${comp.rows===3?' on':''}"
+                  data-action="rows3" title="3 Rows"><span>3</span></button>` : '' }
+
+        <button class="component-action-btn toggle-btn${reqOn}"
+                data-tog="required" title="Required">
+          <i class="fa-solid fa-asterisk"></i>
+        </button>
+        <button class="component-action-btn toggle-btn${hideOn}"
+                data-tog="hideLabel" title="Hide Label">
+          <i class="fa-solid fa-eye-slash"></i>
+        </button>
+        <button class="component-action-btn toggle-btn${actOn}"
+                data-tog="actions" title="Actions">
+          <i class="fa-solid fa-comment-dots"></i>
+        </button>
+      </div><!-- /.extra-actions -->
+    </div><!-- /.right-actions -->
+  `;
+
+  /* ── final markup ───────────────────────────────────────────────── */
+  return `${left}<span class="flex-spacer"></span>${right}`;
 }
+
+
 
 
 
@@ -332,19 +784,8 @@ function renderComponentCards() {
     comps = fs ? fs.components : [];
   }
 
-  /* are we *inside* a Quiz field-set right now? */
-  const parentQuizFS =
-  selectedFieldsetKey !== 'root'
-    ? findFieldsetByKey(formJSON.components, selectedFieldsetKey)
-    : null;
-const isQuiz = parentQuizFS && parentQuizFS.key.startsWith('quiz');
 
 let html = "";
-
-/* NEW – always inject the answer-board once when inside a quiz */
-if (isQuiz) {
-html += renderAnswerKeyBoard(parentQuizFS);
-}
 
   comps.forEach((comp, rootIdx) => {
     if (comp.builderHidden) return;
@@ -366,10 +807,7 @@ html += renderAnswerKeyBoard(parentQuizFS);
           </div>
 
           <div class="component-actions">
-            ${actionButtonsHTML(true)
-                .replace('data-action="calc"',
-                         showCalc ? 'data-action="calc"'
-                                  : 'style="display:none"')}
+            ${actionButtonsHTML(true, comp)}
           </div>
         </div>`;
     }
@@ -400,7 +838,7 @@ html += renderAnswerKeyBoard(parentQuizFS);
                     (${nice(child.customType || child.type)})
                   </small>
                 </div>
-                <div class="component-actions">${actionButtonsHTML(false)}</div>
+                <div class="component-actions">${actionButtonsHTML(false, child)}</div>
               </div>`;
           }
         } else {
@@ -423,8 +861,6 @@ html += renderAnswerKeyBoard(parentQuizFS);
 
 
 
-
-
 /**
  * Update the visible component list in the DOM.
  */
@@ -432,6 +868,13 @@ function updateComponentList() {
   // renderComponentCards() now handles putting HTML in the DOM
   renderComponentCards();
   attachInnerSortables();
+[...openMenuKeys].forEach(key => {
+    const box = document.querySelector(
+      `.component-card[data-key="${key}"] .right-actions`
+    );
+    if (box) box.classList.add('open');
+    else     openMenuKeys.delete(key);   // card was removed
+  });
 }
 
 /**
@@ -487,9 +930,6 @@ function updatePreview() {
   updateComponentList();
   (function walk(arr){
     arr.forEach(c=>{
-      if (c.type === 'fieldset' && c.key.startsWith('quiz')){
-        syncAnswerKey(c);
-      }
       if (Array.isArray(c.components)) walk(c.components);
     });
   })(formJSON.components);
@@ -504,55 +944,6 @@ function updatePreview() {
   }
 }
 
-/**
- * Builds the clickable “answer key board” that sits inside a Quiz field-set.
- * Returns plain HTML so renderComponentCards() can inject it.
- */
-function renderAnswerKeyBoard(quizFS) {
-  const curPass   = (typeof quizFS.passMark === 'number' && !isNaN(quizFS.passMark))
-                      ? quizFS.passMark : '';
-
-  const savedKey  = quizFS.answerKey || {};            // previously chosen answers
-  const children  = quizFS.components || [];           // all direct children
-
-  // build the board
-  let html = `
-    <div class="answer-board">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-        <label>Pass&nbsp;Mark:&nbsp;</label>
-        <input type="number"
-               class="passmark-input"
-               min="1"
-               value="${curPass}"
-               data-quiz="${quizFS.key}"
-               style="width:5rem">
-      </div>
-      <hr>`;                                           // ——— spacer
-
-  // one <div.answer-row> for every question component
-  children.forEach(comp => {
-    if (comp.builderHidden) return;
-    if (!['select', 'radio', 'selectboxes'].includes(comp.type)) return;
-
-    const qKey   = comp.key;
-    const qLabel = comp.label || qKey;
-    const opts   = (comp.type === 'select')
-                     ? (comp.data?.values || [])
-                     : (comp.values       || []);
-
-    html += `<div class="answer-row" data-q="${qKey}">
-               <strong>${qLabel}</strong>`;
-
-    opts.forEach(o => {
-      const on = savedKey[qKey]?.[o.value] ? ' on' : '';
-      html += `<span class="pill${on}" data-val="${o.value}">${o.label}</span>`;
-    });
-    html += `</div>`;
-  });
-
-  html += `</div>`;
-  return html;
-}
 
 
 
@@ -746,13 +1137,28 @@ function reorderComponents(oldIdx, newIdx) {
  * Edit a component by path index. Reuses your openLabelOptionsModal.
  */
 function editComponent(pathIndex) {
-  const comp = getComponentByPath(pathIndex);
-  if (!comp) {
-    return; // No notifications, just silently stop
+
+
+const comp = getComponentByPath(pathIndex);   // ① get the component first
+  if (!comp) return;                            //    (fail-safe)
+
+  const quizFS = findAncestorQuiz(selectedFieldsetKey);
+  if (quizFS && ['select','radio'].includes(comp.type)) {
+       syncAnswerKeyRow(quizFS, comp);          // ② now `comp` is defined
   }
+
   window._currentEditingComponent = comp;
 
   let initialLabel = comp.label || "";
+if (isQuizFieldset(findAncestorQuiz(selectedFieldsetKey)) &&
+    ['select','radio'].includes(comp.type)){
+  const quiz = findAncestorQuiz(selectedFieldsetKey);
+  const grid = quiz.components.find(c=>c.key.startsWith('answerKey'));
+  const row  = grid.defaultValue.find(r=>r.question===initialLabel);
+  if (row){
+    row.question = comp.label;
+  }
+}
   let initialOptions = [];
   let initialDisclaimer = "";
   let initialHideLabel = !!comp.hideLabel;
@@ -763,6 +1169,19 @@ function editComponent(pathIndex) {
     : ! comp.enableTime        ? "date"
     :                            "datetime";
 
+    let initialSpeedLabels = [];
+    let initialSpeedValues = [];
+
+    
+    if (comp.type === "speed") {
+    comp.components
+            .filter(c => c.type === "radio")
+            .forEach(r => {
+              initialSpeedLabels.push(r.label || "");
+              /* keep *exact* value typed at creation (falls back to key) */
+              initialSpeedValues.push(r.__origValue ?? r.key ?? "");
+            });
+    }
 
   // If it's a radio/select/selectboxes => gather current options
   if (["radio", "select", "selectboxes"].includes(comp.type)) {
@@ -773,9 +1192,10 @@ function editComponent(pathIndex) {
     }
   }
   // If disclaimer
-  if (comp.customType === "disclaimer" || comp.type === "content") {
-    initialDisclaimer = stripHtmlTags(comp.html || "");
-  }
+if (comp.customType === "disclaimer" || comp.type === "content") {
+   /* keep the raw HTML so CKEditor shows the original formatting */
+   initialDisclaimer = comp.html || "";
+ }
   // If survey
   let initialSurveyQuestions = [];
   let initialSurveyOptions = [];
@@ -787,10 +1207,21 @@ function editComponent(pathIndex) {
   // If textarea, read the current row count or default to 1
   let initialRows = comp.rows || 1;
 
+  let initialPassMark = 0;
+if (comp.customType === 'quiz') {
+  const pm = comp.components.find(c => c.key.startsWith('passMark'));
+  initialPassMark = pm?.defaultValue ?? 0;
+}
+
+
   /* ---------- determine which type name the modal expects ---------- */
-  const modalType =
-        comp.customType ||
-        (comp.type === "content" ? "disclaimer" : comp.type);
+const modalType = comp.customType
+  ? comp.customType                       // e.g. "disclaimer"
+  : comp.type === "speed"
+    ? "speed"
+    : comp.type === "content"             // legacy Disclaimer = content component
+      ? "disclaimer"
+      : comp.type;  
 
   openLabelOptionsModal(
     (
@@ -804,7 +1235,10 @@ function editComponent(pathIndex) {
       finalRows,
       selectedDTMode,
       styleOrMode,
-      actionsEnabled
+      actionsEnabled,   // ← 11-th
+      incomingDefault,        // ← 12-th (only if you need it)
+      passMark
+
     ) => {
       comp.label = newLabel;
       comp.hideLabel = !!finalHideLabel;
@@ -873,6 +1307,9 @@ function editComponent(pathIndex) {
      (styleOrMode === "number" || styleOrMode === "currency") &&
      styleOrMode !== comp.type) {
 
+
+      
+
    comp.type = styleOrMode;
 
    if (styleOrMode === "currency") {
@@ -884,6 +1321,11 @@ function editComponent(pathIndex) {
    }
  }
 
+if (comp.type === 'number' || comp.type === 'currency') {
+  if (typeof incomingDefault === 'number') comp.defaultValue = incomingDefault;
+  else if (incomingDefault === undefined)  delete comp.defaultValue;
+}
+ 
       // If disclaimer
       if (comp.customType === "disclaimer" || comp.type === "content") {
         comp.html = disclaimText.startsWith("<p")
@@ -907,17 +1349,43 @@ function editComponent(pathIndex) {
         comp.tableView = true;
       }
 
+if (comp.type === 'number' || comp.type === 'currency') {
+  if (typeof incomingDefault === 'number') comp.defaultValue = incomingDefault;
+  else if (incomingDefault === undefined)  delete comp.defaultValue;
+}
+
       if ((comp.customType || comp.type) === "datetime") {
         comp.__mode = selectedDTMode;
         tweakDateTimeMode(comp, selectedDTMode);
       }
 
-      const parentArray =
-            (selectedFieldsetKey === 'root')
-              ? formJSON.components
-              : findFieldsetByKey(formJSON.components, selectedFieldsetKey)?.components || [];
 
-      toggleActionsBundle(parentArray, actionsEnabled, comp);
+      if (comp.type === 'speed') {
+        /* (a) grab just the radios – ignore bundles we might insert */
+        const radios = comp.components.filter(c => c.type === 'radio');
+
+        radios.forEach(radio => {
+          // 1️⃣  make sure the *current* state is cleared first
+          if (radio._actionsDriverKey) {
+            toggleActionsBundle(comp.components, false, radio);
+          }
+          // 2️⃣  apply according to the toggle switch
+          if (actionsEnabled) {
+            toggleActionsBundle(comp.components, true, radio);
+          }
+        });
+      } else {
+        /* every other component behaves as before */
+        const parentArray =
+          (selectedFieldsetKey === 'root')
+            ? formJSON.components
+            : findFieldsetByKey(
+                formJSON.components,
+                selectedFieldsetKey
+              )?.components || [];
+
+        toggleActionsBundle(parentArray, actionsEnabled, comp);
+      }
       window._currentEditingComponent = null;
       updatePreview();
     },
@@ -930,7 +1398,13 @@ function editComponent(pathIndex) {
     initialHideLabel,
     !!comp.validate?.required,
     initialRows,
-    initialDTMode
+    initialDTMode,  
+    comp.type, 
+    (comp._actionsDriverKey ? true : false),                     // 11
+    initialSpeedLabels,                  // 12
+    initialSpeedValues,                  // 13
+    comp.defaultValue,
+    initialPassMark  
   );
 }
 
@@ -972,6 +1446,7 @@ function wrapComponentInColumns(pathIndex, colCount = 2){
 
   /* replace in parent array */
   parentArray.splice(Number(pathIndex), 1, shell);
+  showNotification('Component deleted', 'warn');
 
   /* keep Actions drivers tidy */
   if (window.compactActionBundles) compactActionBundles(parentArray);
@@ -1109,6 +1584,26 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+    const typeContainer = document.getElementById("componentTypeContainer");
+
+  if (typeContainer) {
+    // render the picker cards once
+    const componentTypes = [
+      "disclaimer", "textarea", "account", "choiceList", "survey",
+      "file", "phoneNumber", "address", "asset", "datetime",
+      "number", "editgrid", "speed", "quiz"
+    ];
+
+    typeContainer.innerHTML = componentTypes
+      .map(t => `<div class="card" data-type="${t}">${_.startCase(t)}</div>`)
+      .join("");
+
+    // one click-handler for the whole strip
+    typeContainer.addEventListener("click", onTypeCardClick);
+  } else {
+    console.warn("#componentTypeContainer not found in the HTML");
+  }
+
   // «—— stray `modalType` definition was here – removed »
 
   // "Add Fieldset" button
@@ -1116,7 +1611,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (addFieldsetBtn) {
     addFieldsetBtn.addEventListener("click", () => {
       openLabelOptionsModal(
-        (label, options, disclaimerText, surveyQuestions, surveyOptions, finalHideLabel, finalRows, finalRequired, selectedDTMode) => {
+        (label, options, disclaimerText, surveyQuestions, surveyOptions, finalHideLabel, finalRows, finalRequired, selectedDTMode, actionsEnabled, defaultVal) => {
           const cmp = createComponent("fieldset", label, options, finalHideLabel);
           if (selectedFieldsetKey && selectedFieldsetKey !== "root") {
             const fs = findFieldsetByKey(formJSON.components, selectedFieldsetKey);
@@ -1174,201 +1669,126 @@ const componentTypes = [
   "quiz"
 ];
 
-const typeContainer = document.getElementById("componentTypeContainer");
-if (typeContainer) {
-  /* ➊  render one card per type */
-  typeContainer.innerHTML = componentTypes
-    .map(t => `<div class="card" data-type="${t}">${_.startCase(t)}</div>`)
-    .join("");
 
-  /* ➋  single click-handler (no duplicates) */
-  typeContainer.addEventListener("click", e => {
-    const card = e.target.closest(".card");
-    if (!card) return;
 
-    const chosenType = card.dataset.type;
-
-    /* visual feedback */
-    typeContainer.querySelectorAll(".card").forEach(c => c.classList.toggle(
-      "selected",
-      c === card
-    ));
-
-    /* ---- instant blank Quiz shortcut --------------------------- */
-    if (chosenType === "quiz") {
-      const quizCmp = createComponent("quiz", "Quiz");
-      const destArr = selectedFieldsetKey === "root"
-        ? formJSON.components
-        : findFieldsetByKey(formJSON.components, selectedFieldsetKey).components;
-      destArr.push(quizCmp);
-      updatePreview();
-      return;
-    }
-
-    /* ---- block unsupported types inside Edit-Grid -------------- */
-    const fs = findFieldsetByKey(formJSON.components, selectedFieldsetKey);
-    if (fs && fs.type === "editgrid") {
-      const banned = ["survey", "file", "fieldset", "editgrid", "quiz"];
-      if (banned.includes(chosenType)) {
-        card.classList.remove("selected");
-        return;                         // quietly ignore
-      }
-    }
-
-    /* ---- open the label/options modal -------------------------- */
-    openLabelOptionsModal(
-      (
-        label, options, disclaimerText, sQ, sO,
-        finalHideLabel, finalRequired, finalRows,
-        selectedDTMode, styleOrDT, actionsEnabled
-      ) => {
-
-        /* decide the real component type (handles “choiceList” & “number” style buttons) */
-        let typeToUse = chosenType;
-        if (typeToUse === "choiceList") typeToUse = styleOrDT;   // select | radio | selectboxes
-        if (typeToUse === "number")    typeToUse = styleOrDT;   // number | currency
-
-        const cmp = createComponent(typeToUse, label, options || [], finalHideLabel);
-        if (!cmp.validate) cmp.validate = {};
-        cmp.validate.required = !!finalRequired;
-
-        /* per-type tweaks (textarea rows, disclaimers, surveys, datetime, etc.) */
-        if (typeToUse === "survey") {
-          cmp.questions = ensureUniqueValues(sQ);
-          cmp.values    = ensureUniqueValues(sO);
-        }
-        if (typeToUse === "disclaimer") {
-          cmp.html        = disclaimerText.startsWith("<p")
-            ? disclaimerText
-            : `<p>${disclaimerText}</p>`;
-          cmp.customType  = "disclaimer";
-        }
-        if (typeToUse === "textarea")  {
-          cmp.rows          = finalRows || 1;
-          cmp.labelWidth    = 30;
-          cmp.labelMargin   = 3;
-          cmp.autoExpand    = true;
-          cmp.reportable    = true;
-          cmp.tableView     = true;
-        }
-        if (typeToUse === "datetime") {
-          cmp.__mode = selectedDTMode;
-          tweakDateTimeMode(cmp, selectedDTMode);
-        }
-
-        /* place component in the current field-set (or root) */
-        const destArr = selectedFieldsetKey === "root"
-          ? formJSON.components
-          : findFieldsetByKey(formJSON.components, selectedFieldsetKey).components;
-
-        destArr.push(cmp);
-
-        toggleActionsBundle(destArr, actionsEnabled, cmp);
-        updatePreview();
-
-        /* clear highlight */
-        typeContainer.querySelectorAll(".card").forEach(c => c.classList.remove("selected"));
-      },
-      chosenType           // passes into modal to choose correct UI
-    );
-  });
-}   //  <-- end if (typeContainer)
 
 
   document.getElementById('componentList').addEventListener('click', e => {
-    const pill = e.target.closest('.pill');
-    if (!pill) return;
-  
-    const row  = pill.parentElement;                     // .answer-row
-    const quiz = findFieldsetByKey(formJSON.components, selectedFieldsetKey);
-    if (!quiz) return;
-  
-    /* 1 ▸ toggle UI */
-    pill.classList.toggle('on');
-  
-    /* 2 ▸ rebuild the answer-key object & store on quiz.answerKey */
-    const keyObj = {};
-    row.parentElement.querySelectorAll('.answer-row').forEach(r => {
-      const qKey = r.dataset.q;
-      r.querySelectorAll('.pill.on').forEach(p => {
-        keyObj[qKey] = keyObj[qKey] || {};
-        keyObj[qKey][p.dataset.val] = true;
-      });
-    });
-  
-    quiz.answerKey = keyObj;          // ← single source of truth
+
+const anchor = e.target.closest('.anchor-btn');
+if (anchor) {
+  const card = anchor.closest('.component-card');   // ⇠ we need this
+  const box  = card.querySelector('.right-actions');
+
+const isOpen = box.classList.toggle('open');
+const key    = card.dataset.key;
+if (isOpen) openMenuKeys.add(key);
+else        openMenuKeys.delete(key);
+
+  // stop the click from falling through to other handlers
+  e.stopPropagation();
+  return;
+}
+      // ← single source of truth
   
     updatePreview();                  // keep JSON panel fresh
   });
 
-/* delegated listener – commits pass-mark on change */
-document.getElementById('componentList').addEventListener('change', e => {
-  const inp = e.target.closest('.passmark-input');
-  if (!inp) return;
 
-  const quiz = findCompByKey(formJSON.components, inp.dataset.quiz);
-  if (quiz) {
-    const n = Number(inp.value);
-    quiz.passMark = isNaN(n) ? undefined : n;
-    updatePreview();                // reflect in JSON preview
-  }
-});
   
 
   // Listen for actions on each component card (Move Up, Down, Conditional, Edit, Delete)
   const compListEl = document.getElementById("componentList");
 
   if (compListEl) {
-    compListEl.addEventListener("click", (e) => {
-      const btn  = e.target.closest(".component-action-btn");
-      if (!btn) return;
-  
-      const card = btn.closest(".component-card");
-      const path = card.getAttribute("data-path");
-      const act  = btn.dataset.action;
-  
-      switch (act) {
-  
-        case "conditional":  openConditionalModal(path); break;
-        case "calc":        openCalcModal(path);      break;
-        case "edit":         editComponent(path);        break;
-        case "delete":
-          if (card.dataset.col){                     // deleting inside a Columns row
-            /* 1 - take B out of the column … */
-            const removed = removeComponentInColumn(
-              card.dataset.ownerKey,
-              Number(card.dataset.col),
-              /* pruneAfter */ false                 // keep the column shell in place
-            );
-        
-            /* 2 - …and park it directly UNDER the Columns wrapper */
-            if (removed){
-              const destArr = (selectedFieldsetKey === 'root')
-                ? formJSON.components
-                : findFieldsetByKey(formJSON.components, selectedFieldsetKey).components;
-        
-              const shellIdx = destArr.findIndex(c => c.key === card.dataset.ownerKey);
-              destArr.splice(shellIdx + 1, 0, removed);    // insert just after shell
-            }
-          } else {                                       // regular, non-column delete
-            removeComponentAtPath(path);
-          }
-        
-          updatePreview();                               // redraw lists + JSON
-          break;
-        case "moveto":       openMoveToModal(path);      break;
-  
-        /* instant two/three-column wrap */
-        case "wrap2":
-        case "wrap3": {
-          const cols = act === "wrap2" ? 2 : 3;
-          wrapComponentInColumns(path, cols);
-          updatePreview();              // refresh list & counter
-          break;
-        }
+    compListEl.addEventListener("click", (e) => {  
+  /* ───── toggle buttons (required / hideLabel / actions) ───── */
+  const tog = e.target.closest(".toggle-btn");
+  if (tog) {
+    const card  = tog.closest(".component-card");
+    const comp  = findCompByKey(formJSON.components, card.dataset.key);
+    if (!comp) return;
+
+    switch (tog.dataset.tog) {
+      case "actions": {
+        const parentArr = selectedFieldsetKey === "root"
+          ? formJSON.components
+          : findFieldsetByKey(formJSON.components, selectedFieldsetKey).components;
+        const enable = !tog.classList.contains("on");
+        toggleActionsBundle(parentArr, enable, comp);
+        break;
       }
-    });
+      case "required":
+        comp.validate = comp.validate || {};
+        comp.validate.required = !comp.validate.required;
+        break;
+      case "hideLabel":
+        comp.hideLabel = !comp.hideLabel;
+        break;
+    }
+    tog.classList.toggle("on");
+    updatePreview();
+    return;                           // ← we’re done, don’t fall through
   }
+
+  /* ───── everything else: action buttons (edit, delete, …) ───── */
+  const btn  = e.target.closest(".component-action-btn");
+  if (!btn) return;
+  const card = btn.closest(".component-card");
+  const path = card.dataset.path;
+  switch (btn.dataset.action) {
+    case "conditional":  openConditionalModal(path); break;
+    case "calc":         openCalcModal(path);        break;
+    case "edit":         editComponent(path);        break;
+    case "akey":openAnswerKeyModal(getComponentByPath(path));break;
+    case "delete":       handleDelete(card, path);   break;
+    case "moveto":       openMoveToModal(path);      break;
+    case "wrap2":
+    case "wrap3":
+      wrapComponentInColumns(path, btn.dataset.action === "wrap2" ? 2 : 3);
+      updatePreview();
+      break;
+
+    case "dtmode": {
+      const comp = getComponentByPath(path);
+      if (comp && (comp.type === "datetime" || comp.customType === "datetime")) {
+        const newMode = btn.dataset.mode;          // "datetime" | "date" | "time"
+        comp.__mode = newMode;
+        tweakDateTimeMode(comp, newMode);          // ← helper already in file
+        updatePreview();
+      }
+      break;
+    }
+    case "nummode": {                          // ⏣ NEW
+      const comp = getComponentByPath(path);
+      if (comp && (comp.type === "number" || comp.type === "currency")) {
+        const newMode = btn.dataset.mode;      // "number" | "currency"
+        if (newMode !== comp.type) {
+          if (newMode === "currency") {
+            comp.type      = "currency";
+            comp.currency  = "USD";
+            comp.delimiter = true;             // 1,234 style
+          } else {
+            comp.type = "number";
+            delete comp.currency;
+            delete comp.delimiter;
+          }
+        }
+        updatePreview();                       // redraw + refresh “on” states
+      }
+      break;
+    }
+    case "rows3": {                       // ★ NEW
+     const comp = getComponentByPath(path);
+     if (comp && comp.type === "textarea") {
+       comp.rows = (comp.rows === 3) ? 1 : 3;   // toggle 1 ↔ 3
+       updatePreview();
+     }
+     break;
+   }
+  }
+});
+}
 
 
 /*─────────────────────────────────────────────────────────
@@ -1539,6 +1959,8 @@ function openCalcModal(pathIndex) {
 function closeCalcModal(){
   const modal = document.getElementById("calcModal");
   disableModalKeys(modal);
+  const numDefaultSection = document.getElementById('numberDefaultSection');
+  const numDefaultInput   = document.getElementById('numberDefaultInput');
   if (!modal) return;
   modal.style.display = "none";
   modal.classList.remove("super-top");
@@ -1547,6 +1969,80 @@ function closeCalcModal(){
     modal._currentOverlay = null;
   }
 }
+
+
+function openAnswerKeyModal(grid){
+  if (!grid) return;
+
+  const quizFS   = findAncestorQuiz(selectedFieldsetKey);
+  const dlg      = document.getElementById('answerKeyModal');
+  const rowsBox  = dlg.querySelector('#akeyRows');
+  rowsBox.innerHTML = '';
+
+  grid.defaultValue.forEach((row,i)=>{
+    const wrap = document.createElement('div');
+    wrap.className = 'akey-row';
+
+    /* label */
+    const q    = document.createElement('span');
+    q.textContent = row.question;
+    q.className   = 'akey-q';
+    wrap.appendChild(q);
+
+    /* choices */
+    const cmp = quizFS.components.find(c=>c.label===row.question);
+    const opts = (cmp?.data?.values || cmp?.values || []).map(o=>o.label);
+
+    const optsBox = document.createElement('div');
+    optsBox.className = 'akey-opts';
+    opts.forEach(lbl=>{
+      const btn = document.createElement('button');
+      btn.textContent = lbl;
+      btn.className   = 'akey-opt';
+      if (lbl === row.answer) btn.classList.add('sel');
+      btn.onclick = () =>{
+        wrap.querySelectorAll('.akey-opt').forEach(b=>b.classList.remove('sel'));
+        btn.classList.add('sel');
+        row.answer = lbl;                // update live
+        
+      };
+      optsBox.appendChild(btn);
+    });
+    wrap.appendChild(optsBox);
+
+    rowsBox.appendChild(wrap);
+  });
+
+  dlg.style.display = 'block';
+const saveBtn = dlg.querySelector('#akeySave');
+  if (saveBtn){
+    saveBtn.onclick = () => {
+      closeAnswerKeyModal();        // hides modal & runs updatePreview()
+      showNotification('Answer-key saved!', 'info', 1500);
+    };
+  }
+
+  // give Enter/Esc keyboard helpers the real Save button
+  enableModalKeys(dlg, saveBtn, closeAnswerKeyModal);
+  dlg.addEventListener('keydown', e=>{
+  if(e.key==='Enter'||e.key==='Escape'){
+    e.preventDefault(); closeAnswerKeyModal();
+  }
+});
+showNotification('Answer-key updated','info',1200);
+}
+
+
+
+
+function closeAnswerKeyModal(){
+  const dlg = document.getElementById('answerKeyModal');
+  disableModalKeys(dlg);
+  dlg.style.display = 'none';
+  updatePreview(); 
+}
+
+window.closeAnswerKeyModal = closeAnswerKeyModal;
 
 
 /* ---------------- Main component-list Sortable ---------------- */
@@ -1698,126 +2194,6 @@ listEl.appendChild(tail)
   updatePreview();
   
 
-    /* ========= Save‑Template modal ========== */
-const saveModal     = document.getElementById('saveTplModal');
-const folderRow     = document.getElementById('folderPickRow');
-const nameInput     = document.getElementById('tplNameInput');
-const confirmBtn    = document.getElementById('confirmSaveTplBtn');
-
-window.closeSaveTplModal = () => {
-  saveModal.style.display = 'none';
-  document.getElementById('overlay').style.display = 'none';
-};
-
-async function openSaveTplModal(isEdit){
-  nameInput.value = isEdit ? (window._currentTplName || '') : '';
-  folderRow.innerHTML = '<div class="card">Loading…</div>';
-
-  /* fetch existing folders */
-  const folders = await fetch('/api/templates').then(r=>r.json());
-  if (!folders.includes('')) {
-    folders.unshift('');
-  }
-  folderRow.innerHTML = '';
-  folders.forEach(f=>{
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.textContent = f || '(root)';
-    card.onclick = ()=> {
-      [...folderRow.children].forEach(c=>c.classList.remove('selected'));
-      card.classList.add('selected');
-    };
-    folderRow.appendChild(card);
-
-    /* pre‑select current folder when editing */
-    if (isEdit && f === window._currentTplFolder) card.classList.add('selected');
-  });
-
-  saveModal.style.display = 'block';
-  document.getElementById('overlay').style.display = 'block';
-}
-
-/* hijack the OLD save button */
-document.getElementById('saveTemplateBtn')
-        .addEventListener('click', () => {
-  const editing = Boolean(localStorage.getItem('importedId'));  // true if we loaded a file from library.html
-  openSaveTplModal(editing);      // just shows your modal
-});
-
-/* final save */
-confirmBtn.addEventListener('click', async () => {
-  const name = nameInput.value.trim();
-  const selCard = folderRow.querySelector('.card.selected');
-  if (!name || !selCard){
-    alert('Pick a name and a folder');
-    return;
-  }
-  const folder = selCard.textContent === '(root)' ? '' : selCard.textContent;
-
-  const clean = JSON.parse(JSON.stringify(formJSON, (k,v)=>
-                   k==='builderHidden'?undefined:v));
-  const editingId = localStorage.getItem('importedId')
-
-  /* POST for new OR edit (the templates.js route inserts duplicate names anyway) */
-  if (editingId) {
-       /* ------------  EDIT  →  PUT  ------------ */
-       const r = await fetch(`/api/templates/${editingId}`, {
-            method :'PUT',
-            headers:{'Content-Type':'application/json'},
-            body   : JSON.stringify({ json: clean })
-          });
-          if (!r.ok) {
-            alert(await r.text() || 'Save failed');
-            return;                         // ⬅️ don’t close modal / clear markers
-          }
-     } else {
-       /* ------------  NEW   →  POST ------------ */
-       const r = await fetch('/api/templates', {
-         method :'POST',
-         headers:{'Content-Type':'application/json'},
-         body   : JSON.stringify({ name, folder, json: clean })
-       });
-       if (!r.ok) {
-            alert(await r.text() || 'Save failed');
-            return;
-          }
-     }
-
-     closeSaveTplModal();
-
-     /* wipe all edit markers */
-     localStorage.removeItem('importedForm');
-     localStorage.removeItem('importedId');
-     localStorage.removeItem('importedName');
-     localStorage.removeItem('importedFolder');
-   
-     /* jump back to the library */
-     location.href = '/';
-   });
-
-    
-
-
-/* helper that actually downloads + loads */
-async function loadTemplate(id) {
-  try {
-    const buf   = await fetch(`/api/templates/${id}/download`).then(r => r.arrayBuffer());
-    const zip   = await JSZip.loadAsync(buf);
-    const form  = await zip.file('form.json').async('string');
-
-    window.formJSON = JSON.parse(form);
-    selectedFieldsetKey = 'root';
-    window._usedKeys    = {};
-    registerExistingKeys(formJSON.components);
-    updatePreview();
-    alert('✅ template loaded!');
-  } catch (err) {
-    alert('Load failed: ' + err.message);
-  }
-}
-
-
-
   
   
   /* ---------- Import-JSON modal ---------- */
@@ -1874,7 +2250,11 @@ async function loadTemplate(id) {
         formJSON.components.push(imported);
  
         registerExistingKeys([imported]);
-        updatePreview();
+ updatePreview();
+ const qFs = findAncestorQuiz(selectedFieldsetKey);
+ if (qFs && ['select','radio'].includes(imported.type)) {
+   syncAnswerKeyRow(qFs, imported);
+ }
         showNotification('Component added to the root grouping!');
         return;                               // ← done
       }
@@ -1913,3 +2293,82 @@ async function loadTemplate(id) {
   window.closeImportJsonModal = closeImportJsonModal;
 });
 
+
+/* ========= Save-Template modal ========== */
+const saveModal  = document.getElementById('saveTplModal');
+const overlay    = document.getElementById('overlay');
+const confirmBtn = document.getElementById('confirmSaveTplBtn');
+
+/* close helper */
+window.closeSaveTplModal = () => {
+  saveModal.style.display = 'none';
+  overlay.style.display   = 'none';
+};
+
+/* open helper – now shows the 2 note fields only */
+function openSaveTplModal() {
+  document.getElementById('implTxt').value   = '';
+  document.getElementById('issuesTxt').value = '';
+
+  saveModal.style.display = 'block';
+  overlay.style.display   = 'block';
+}
+
+/* toolbar button → open modal */
+document.getElementById('saveTemplateBtn')
+        .addEventListener('click', openSaveTplModal);
+
+/* final “Save” – POST form.json as a ZIP */
+confirmBtn.addEventListener('click', async () => {
+  const name  = tplNameInput.value.trim();          // send the typed name
+  const clean = JSON.parse(JSON.stringify(
+                 formJSON, (k,v)=>k==='builderHidden'?undefined:v));
+
+  try {
+    const r = await fetch('/api/templates', {
+      method :'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body   : JSON.stringify({ json: clean, name })
+    });
+    if (!r.ok) throw new Error(await r.text());
+    closeSaveTplModal();
+    showNotification('Template ZIP saved', 'info');      // toast, no emoji
+  } catch (err) {
+    showNotification('Save failed: ' + err.message, 'error');
+  }
+});
+
+
+
+/* ---------------------------------------------------------------
+   Small toast helper – use   showNotification('Saved', 'error')
+   kind = info | warn | error   (default = 'info')
+/* ------------------------------------------------------------------ */
+(function () {
+  const tray      = document.createElement('div');
+  tray.id         = 'notifyTray';
+  document.body.appendChild(tray);
+
+  const DEFAULT_TTL = 2000;   // 2 s
+  const FADE_MS     = 250;    // CSS transition time
+
+  window.showNotification = function (msg, kind = 'info', ttl = DEFAULT_TTL) {
+    const card = document.createElement('div');
+    card.className = `notify-card ${kind}`;
+    card.textContent = msg;
+    card.style.setProperty('--ttl', `${ttl}ms`);  // drives shimmer length
+
+    tray.appendChild(card);
+
+    /* fade-in */
+    requestAnimationFrame(() => card.classList.add('show'));
+
+    /* fade-out after TTL */
+    setTimeout(() => card.classList.remove('show'), ttl);
+
+    /* remove after fade-out completes */
+    card.addEventListener('transitionend', () => {
+      if (!card.classList.contains('show')) card.remove();
+    });
+  };
+})();

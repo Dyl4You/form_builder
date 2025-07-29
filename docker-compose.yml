@@ -1,0 +1,9 @@
+services:
+  grobid:
+    image: lfoppiano/grobid:0.8.1   # ← latest stable at 2025-06-21
+    platform: linux/arm64/v8 
+    restart: unless-stopped
+    environment:
+      - GROBID_MAX_CONNECTIONS=4
+    ports:
+      - "8070:8070"

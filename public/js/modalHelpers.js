@@ -2,6 +2,26 @@
  * public/js/modalHelpers.js
  ****************************************************/
 
+
+
+window._ckEditors = {};   // keep instances by element id
+
+function makeCKEditor(el) {
+  return ClassicEditor.create(el, {
+    toolbar: [
+      'heading', '|',
+      'bold', 'italic', 'link', 'bulletedList', 'numberedList', '|',
+      'blockQuote', 'insertTable', 'undo', 'redo'
+    ]
+  }).then(ed => (window._ckEditors[el.id] = ed));
+}
+
+function destroyCKEditor(elId) {
+  const ed = window._ckEditors[elId];
+  if (ed) { ed.destroy(); delete window._ckEditors[elId]; }
+}
+
+
 // Utility to create a new overlay element with a specified z-index
 function createOverlay(zIndex) {
   const overlay = document.createElement('div');
@@ -74,6 +94,7 @@ function createOverlay(zIndex) {
 
   modal.__enterHandler = e => {
     if (e.key === 'Enter') {
+      if (e.target.closest('.ck-content') || e.target.closest('.ck')) return;
       /* ignore when user is actively typing */
       const tag = (e.target.tagName || '').toUpperCase();
       const isTextarea   = tag === 'TEXTAREA';
@@ -834,6 +855,8 @@ function stripHtmlTags(html) {
   return tempDiv.textContent || tempDiv.innerText || "";
 }
 
+
+
 /**************************************************************
  *  Unified Label & Options Modal
  **************************************************************/
@@ -848,7 +871,12 @@ function openLabelOptionsModal(
   initialHideLabel = false,
   initialRequired = true,
   initialRows,
-  initialDTMode = "datetime"
+  initialDTMode = "datetime", 
+  initialStyleOrDT = "select",
+  initialActionsEnabled = false,
+  initialSpeedLabels = [],
+  initialSpeedValues = [],
+  initialDefault  
 ) {
   const modal = document.getElementById("labelOptionsModal");
   disableModalKeys(modal);
@@ -858,16 +886,23 @@ function openLabelOptionsModal(
     return;
   }
   _presetDetailedOptions = null;
+  _presetRadioOptions = null;
 
 
+
+  
+  const numDefaultSection = document.getElementById('numberDefaultSection');
+const numDefaultInput   = document.getElementById('numberDefaultInput');
+  
 
   // Create a new overlay
   const overlay = createOverlay(1999);
   modal.classList.add("super-top");
 
   // Show/hide sections depending on type
-  document.getElementById("optionsSection").style.display =
-    ["radio", "select", "selectboxes", "choiceList"].includes(type) ? "block" : "none";
+document.getElementById("optionsSection").style.display =
+  ["radio","select","selectboxes","choiceList"].includes(type)
+    ? "block" : "none";
 
   document.getElementById("disclaimerSection").style.display =
     (type === "disclaimer") ? "block" : "none";
@@ -878,12 +913,48 @@ function openLabelOptionsModal(
   document.getElementById("dateTimeModeContainer").style.display =
     type === "datetime" ? "block" : "none";
 
+  document.getElementById("speedSection").style.display =
+  (type === "speed") ? "block" : "none";
+
+  document.getElementById("quizPassSection").style.display =
+  type === "quiz" ? "block" : "none";
+
+if (type === 'number' || type === 'currency') {
+  numDefaultSection.style.display = 'block';
+  numDefaultInput.value =
+    (initialDefault !== undefined ? initialDefault : ''); // ← blank unless one already exists
+} else {
+  numDefaultSection.style.display = 'none';
+}
+
+
+  if (type === "speed") {
+    const lblTA = document.getElementById("speedLabelsInputUnified");
+    const valTA = document.getElementById("speedValuesInputUnified");
+
+    /* always start clean, then pre-fill when editing */
+    lblTA.value = (initialSpeedLabels || []).join("\n");
+    valTA.value = (initialSpeedValues || []).join("\n");
+
+    _presetDetailedOptions = null;
+    _presetRadioOptions    = null;       // ← important: clear also the radio preset
+
+    /* clear any previously highlighted preset card */
+    document
+      .getElementById("speedPresetRow")
+      ?.querySelectorAll(".preset-card")
+      .forEach(c => c.classList.remove("selected"));
+  }
   
   document.getElementById("rowButtonsContainer").style.display =
     type === "textarea" ? "block" : "none";
 
   const labelInput = document.getElementById("labelOptionsLabelInput");
+  if (type === "quiz") {
+  document.getElementById("quizPassInput").value = initialDefault ?? 0;
+}
   labelInput.value = initialLabel || "";
+  
 
  // --- Hide‑label switch ---
 const hideLabelSection = document.getElementById('hideLabelSection');
@@ -903,7 +974,8 @@ presetsRow?.querySelectorAll(".preset-card")
             const saved = initialSurveyOptions.map(o => (o.label || o).trim());
         
             function sameList(a, b) {
-              return a.length === b.length && a.every((v, i) => v === b[i]);
+              return a.length === b.length &&
+              a.every((v, i) => v.toLowerCase() === b[i].toLowerCase());
             }
         
             presetsRow.querySelectorAll(".preset-card").forEach(card => {
@@ -930,32 +1002,33 @@ presetRow.addEventListener('click', e => {
 
   /* remember full objects for Save button */
   switch (card.dataset.options) {
-    case 'Safe,At Risk,NA':
+    case 'Safe,At Risk,N/A':
       _presetDetailedOptions = [
         { label:'Safe',    value:'safe',   tooltip:'', flag:'success' },
         { label:'At Risk', value:'atRisk', tooltip:'', flag:'danger'  },
-        { label:'NA',      value:'na',     tooltip:'', flag:''        }
+        { label:'NA',      value:'nA',     tooltip:'', flag:''        }
       ];
       break;
 
-    case 'Pass,Fail,NA':
+    case 'Pass,Fail,N/A':
       _presetDetailedOptions = [
         { label:'Pass', value:'pass', tooltip:'', flag:'success' },
         { label:'Fail', value:'fail', tooltip:'', flag:'danger'  },
-        { label:'NA',   value:'na',   tooltip:'', flag:''        }
+        { label:'N/A',   value:'nA',   tooltip:'', flag:''        }
       ];
       break;
 
-    case 'Yes,No,NA':
+    case 'Yes,No,N/A':
       _presetDetailedOptions = [
         { label:'Yes', value:'yes', tooltip:'', flag:'success' },
         { label:'No', value:'no', tooltip:'', flag:'danger'  },
-        { label:'NA',   value:'na',   tooltip:'', flag:''        }
+        { label:'N/A',   value:'nA',   tooltip:'', flag:''        }
       ];
       break;  
 
     default:
       _presetDetailedOptions = null;  
+      _presetRadioOptions = null;
   }
 });
 
@@ -985,7 +1058,7 @@ fsPresetRow?.addEventListener("click", e => {
 });
 
 // Show / hide the whole section
-if (type === 'fieldset') {
+if (type === 'fieldset' || type === 'speed') { 
   if (hideLabelSection) hideLabelSection.style.display = 'none';
 } else {
   if (hideLabelSection) hideLabelSection.style.display = 'block';
@@ -1016,10 +1089,12 @@ if (hideLabelToggle) {
   const actionsToggle        = document.getElementById('actionsToggle');
 
   if (actionsToggle) {
-    actionsToggle.checked = Boolean(
-      window._currentEditingComponent &&
-      window._currentEditingComponent._actionsDriverKey
-    );
+    actionsToggle.checked =
+      initialActionsEnabled ||    // ← value passed from the caller
+      Boolean(
+        window._currentEditingComponent &&
+        window._currentEditingComponent._actionsDriverKey
+      );
   }
 
 
@@ -1028,7 +1103,7 @@ if (hideLabelToggle) {
 
 /* ---------- Choice-List style buttons (+ Radio presets) ---------- */
 const listStyleContainer = document.getElementById('listStyleContainer');
-let   selectedListStyle  = null;         // current visual style (select / radio / selectboxes)
+let   selectedListStyle  = initialStyleOrDT       // current visual style (select / radio / selectboxes)
 
 /* the row that shows the YES/NO/NA – PASS/FAIL/NA cards for Radio */
 const radioPresetRow = document.getElementById('choiceRadioPresets');
@@ -1102,11 +1177,25 @@ radioPresetRow?.addEventListener('click', e => {
 
   /* remember detailed objects (Pass = success, Fail = danger) */
   switch (card.dataset.options) {
+    case 'Safe,At Risk,NA':
+      _presetRadioOptions = [
+        { label:'Yes',    value:'no',   flag:'success', shortcut:'' },
+        { label:'No', value:'no', flag:'danger',  shortcut:'' },
+        { label:'N/A',      value:'na',     flag:'',        shortcut:'' }
+      ];
+      break;
+   case 'Safe,At Risk,NA':
+     _presetRadioOptions = [
+       { label:'Safe',    value:'safe',   flag:'success', shortcut:'' },
+       { label:'At Risk', value:'atRisk', flag:'danger',  shortcut:'' },
+       { label:'N/A',      value:'na',     flag:'',        shortcut:'' }
+     ];
+      break;
     case 'Pass,Fail,NA':
       _presetRadioOptions = [
         { label:'Pass', value:'pass', flag:'success', shortcut:'' },
         { label:'Fail', value:'fail', flag:'danger',  shortcut:'' },
-        { label:'NA',   value:'na',   flag:'',        shortcut:'' }
+        { label:'N/A',   value:'na',   flag:'',        shortcut:'' }
       ];
       break;
     default:                    // Yes / No / NA → simple labels, no flags
@@ -1117,6 +1206,75 @@ radioPresetRow?.addEventListener('click', e => {
 /* run once on modal open */
 refreshRadioPresetRow();
 
+/* ---------- Speed presets (just like Radio, but scoped to Speed) --- */
+const speedPresetRow = document.getElementById('speedPresetRow');
+if (speedPresetRow) {
+  speedPresetRow.addEventListener('click', e => {
+    const card = e.target.closest('.preset-card');
+    if (!card) return;
+
+    /* visual highlight */
+    speedPresetRow.querySelectorAll('.preset-card')
+                  .forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+
+    /* push plain labels into the textarea so the user can still tweak */
+    document.getElementById('speedValuesInputUnified').value =
+       card.dataset.options.split(',').join('\n');
+
+    /* remember the full objects (success / danger flags) */
+    switch (card.dataset.options) {
+      case 'Yes,No,NA':
+        _presetRadioOptions = [
+          { label:'Yes', value:'yes', flag:'success', shortcut:'' },
+          { label:'No',  value:'no',  flag:'danger',  shortcut:'' },
+          { label:'N/A',  value:'nA',  flag:'',        shortcut:'' }
+        ];
+        break;
+      case 'Pass,Fail,NA':
+        _presetRadioOptions = [
+          { label:'Pass', value:'pass', flag:'success', shortcut:'' },
+          { label:'Fail', value:'fail', flag:'danger',  shortcut:'' },
+          { label:'N/A',   value:'nA',   flag:'',        shortcut:'' }
+        ];
+        break;
+      case 'Safe,At Risk,NA':
+        _presetRadioOptions = [
+          { label:'Safe',    value:'safe',   flag:'success', shortcut:'' },
+          { label:'At Risk', value:'atRisk', flag:'danger',  shortcut:'' },
+          { label:'N/A',      value:'nA',     flag:'',        shortcut:'' }
+        ];
+        break;
+      default:
+        _presetRadioOptions = null;
+    }
+
+    if (type === "speed" && initialSpeedValues.length) {
+  const saved = initialSpeedValues.map(v => v.trim());
+  function sameList(a, b) {
+    return a.length === b.length &&
+         a.every((v, i) => v.toLowerCase() === b[i].toLowerCase());
+  }
+speedPresetRow.querySelectorAll(".preset-card").forEach(card => {
+    const preset = card.dataset.options.split(",").map(s => s.trim());
+    if (sameList(saved, preset)) {
+      card.click();               // reuse existing click handler → highlights & sets _presetRadioOptions
+    }
+  });
+}
+      });
+    }
+
+if (type === "speed" && initialSpeedValues.length && speedPresetRow) {
+  const saved = initialSpeedValues.map(v => v.trim());
+  const same  = (a, b) => a.length === b.length &&
+                          a.every((v, i) => v === b[i]);
+
+  speedPresetRow.querySelectorAll(".preset-card").forEach(card => {
+    const preset = card.dataset.options.split(",").map(s => s.trim());
+    if (same(saved, preset)) card.click();     // listener now runs ✅
+  });
+}
 
 /* ---------- Number / Currency style buttons ---------- */
 const numStyleContainer = document.getElementById('numStyleContainer');
@@ -1216,10 +1374,17 @@ if (type === "textarea") {
   }
 
   // Disclaimer text
-  const disclaimTA = document.getElementById("disclaimerTextAreaUnified");
-  if (disclaimTA) {
-    disclaimTA.value = (type === "disclaimer") ? initialDisclaimer : "";
-  }
+/* ——— create / populate the CKEditor instance ——— */
+let disclaimerEditor = null;
+if (type === 'disclaimer') {
+  const ta = document.getElementById('disclaimerRTE');
+  ta.value = initialDisclaimer || '';
+  makeCKEditor(ta).then(ed => {
+    disclaimerEditor = ed;
+    if (initialDisclaimer) ed.setData(initialDisclaimer);
+  });
+}
+
 
   // Survey => two textareas
   const surveyQuestionsTA = document.getElementById("surveyQuestionsInputUnified");
@@ -1287,8 +1452,9 @@ if (type === "textarea") {
       }
 
       // If disclaimer
-      if (type === "disclaimer" && disclaimTA) {
-        finalDisclaimer = disclaimTA.value.trim();
+      if (type === 'disclaimer') {
+        const ed = disclaimerEditor || window._ckEditors['disclaimerRTE'];
+        finalDisclaimer = ed ? ed.getData() : '';
       }
 
       // If survey
@@ -1340,7 +1506,55 @@ if (type === "textarea") {
   ? actionsToggle.checked
   : false;
 
-      closeLabelOptionsModal();
+      let finalSpeedLabels = [];
+      let finalSpeedValues = [];
+       if (type === "speed" && !_presetRadioOptions) {
+       const raw = (document.getElementById("speedValuesInputUnified")?.value || "")
+                     .trim();
+       if (raw) {
+         const parts = raw
+             .split(/\r?\n|,/)
+             .map(s => s.trim())
+             .filter(Boolean);
+
+         if (parts.length) {
+           _presetRadioOptions = parts.map(p => ({
+             label    : p,                 // what the user sees
+             value    : _.camelCase(p),    // safe value used in data
+             flag     : "",                // no colour flags by default
+             shortcut : ""
+           }));
+         }
+       }
+     }
+
+      if (type === "speed") {
+        const speedLabelsEl = document.getElementById("speedLabelsInputUnified");
+        const speedValuesEl = document.getElementById("speedValuesInputUnified");
+      
+        finalSpeedLabels = (speedLabelsEl.value || "")
+                             .split(/\r?\n/)
+                             .map(s => s.trim())
+                             .filter(Boolean);
+      
+        finalSpeedValues = (speedValuesEl.value || "")
+                             .split(/\r?\n/)
+                             .map(s => s.trim())
+                             .filter(Boolean);
+      }
+
+
+const rawDefault = numDefaultInput.value.trim();
+
+const defaultVal =
+  rawDefault === ''          // empty field → no default
+    ? undefined
+    : Number(rawDefault);    // may be 0, 3.14, –5, etc.         // number (may be 0)
+    const passMark =
+  (type === "quiz")
+    ? Number(document.getElementById("quizPassInput").value) || 0
+    : undefined;
+closeLabelOptionsModal();
       callback(
         finalLabel,
         finalOptions,
@@ -1352,75 +1566,19 @@ if (type === "textarea") {
         finalRows,
         selectedDTMode,
         styleOrDT,
-        finalActionsEnabled
+        finalActionsEnabled, 
+        finalSpeedLabels, 
+        finalSpeedValues,
+        defaultVal ,
+        passMark 
       );
     };
   }
 }
 
-function openAnswerPickModal(comp){
-  const ov  = createOverlay(1999);
-  const dlg = document.getElementById('miniPickModal') ||
-              (()=>{                       // build once
-                 const m = document.createElement('div');
-                 m.id     = 'miniPickModal';
-                 m.className = 'modal super-top';
-                 m.innerHTML =
-                   `<div class="modal-content" style="min-width:320px">
-                      <div class="modal-header">
-                        <h3>Pick correct answers</h3>
-                        <span class="close-btn">×</span>
-                      </div>
-                      <div class="modal-body" id="miniPickBody"></div>
-                      <div class="modal-buttons">
-                        <button id="miniPickSave">Save</button>
-                      </div>
-                    </div>`;
-                 document.body.appendChild(m);
-                 return m;
-              })();
-
-  dlg._ov = ov;
-  const body = dlg.querySelector('#miniPickBody');
-  body.innerHTML = '';
-
-  /* build check-/radio-list */
-  const opts = comp.type==='select'
-                 ? (comp.data?.values||[])
-                 : (comp.values||[]);
-  const multi = comp.type==='selectboxes';
-
-  opts.forEach(o=>{
-     const id = 'p_'+Math.random().toString(36).slice(2);
-     const row = document.createElement('div');
-     row.innerHTML =
-        `<input type="${multi?'checkbox':'radio'}" id="${id}">
-         <label for="${id}" style="margin-left:6px">${o.label}</label>`;
-     const inp = row.firstElementChild;
-     inp.checked = (comp.defaultValue||{})[o.value] || false;
-     inp.dataset.val = o.value;
-     body.appendChild(row);
-  });
-
-  function close(){ dlg.style.display='none'; ov.remove(); }
-  dlg.querySelector('.close-btn').onclick = close;
-
-  dlg.querySelector('#miniPickSave').onclick = () =>{
-     const sel = {};
-     body.querySelectorAll('input:checked')
-         .forEach(i=> sel[i.dataset.val]=true);
-     comp.defaultValue = sel;        // <-- stores the answer key
-     close();
-     updatePreview();
-  };
-
-  dlg.style.display = 'block';
-}
-
 
 function closeLabelOptionsModal() {
-  _presetDetailedOptions = null;
-  _presetRadioOptions = null;
+  destroyCKEditor('disclaimerRTE'); 
   const modal = document.getElementById("labelOptionsModal");
   disableModalKeys(modal);
   if (!modal) return;

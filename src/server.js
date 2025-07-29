@@ -20,6 +20,13 @@ app.use('/', formBuilderRoutes);
 
 app.use('/api/templates', require('./routes/templates'));
 
+app.use('/', require('./routes/aiUpload'));
+
+app.use('/', require('./routes/ai'));
+
+app.use(require('./routes/aiDictate'));
+
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

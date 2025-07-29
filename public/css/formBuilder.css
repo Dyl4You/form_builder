@@ -16,18 +16,26 @@ html, body {
 /* Container for main form area */
 .container {
     padding: 20px;
+    flex:0 0 900px;  
     max-width: 900px;
     margin: 50px auto;
     background-color: #424242;
     border-radius: 10px;
+    margin-right:auto; 
+    position:relative;          /* ⟵ lets the overlay sit inside */
+    background:#3b3b3b;
 }
 
-.wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
+
+
+.wrapper{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  width:100%;
+  min-height:100vh; 
 }
+
 
 h1, h3 {
     color: #e3e3e3;
@@ -167,10 +175,11 @@ pre {
 
 /* Fixed-width buttons (all 110px) */
 .component-action-btn{
-    width: 34px;             /* small, square footprint */
+    width: auto;
+    min-width: 34px;             /* small, square footprint */
     height: 34px;
-    flex: 0 0 34px; 
-    padding: 0;
+    flex : 0 0 auto; 
+    padding: 0 10px;
     border-radius: 6px;      /* rounded-square look     */
     background-color:#424242;
     display:flex;
@@ -180,13 +189,15 @@ pre {
     font-size:16px;          /* icon size               */
     line-height:1;
   }
-    .component-action-btn:hover{ background:#757575; }
     
-    .columns-row .component-action-btn{
-        width: 30px;
-        height: 30px;
-        flex: 0 0 30px; 
-      }
+.columns-row .component-action-btn{
+  width: auto;
+  flex : 0 0 auto;
+  min-width: 30px;           /* slightly smaller inside columns */
+  height: 30px;
+  padding: 0 8px;
+}
+
 
     .component-action-btn i{ pointer-events:none; }
 /* Hide JSON preview by default */
@@ -789,9 +800,300 @@ body.library{
 .drag-ghost                           { opacity: .65 !important; }
 
 
-.answer-board      { margin:4px 0 12px; }
-.answer-row        { margin:4px 0; display:flex; gap:6px; align-items:center; }
-.answer-row strong { min-width:140px; }
-.pill              { cursor:pointer; padding:3px 10px; border:1px solid #888;
-                     border-radius:12px; user-select:none; font-size:12px; }
-.pill.on           { background:#3c8; color:#000; border-color:#3c8; }
+.toggle-btn.on{ background:#757575; }
+
+
+.component-actions{
+  position: static;               /* back to normal flow */
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.flex-spacer{ flex:1; }            /* pushes the toggles to the far right */
+
+/* toggle highlight */
+.toggle-btn.on{ background:#757575; }
+
+/* keep cards draggable cursor */
+.component-card{ cursor: grab; }
+.component-card:active{ cursor: grabbing; }
+.rows-btn.on{ background:#757575; }
+.dt-btn{ white-space: nowrap; }
+.dt-btn.on{ background:#757575; }
+.num-btn.on,
+.dt-btn.on { background:#757575; }
+
+/* keep the new icon buttons square like the others */
+.num-btn { width:34px;height:34px;flex:0 0 34px;padding:0;line-height:1; }
+.dt-btn  { width:34px;height:34px;flex:0 0 34px;padding:0;line-height:1; }
+
+.right-actions{
+  display:flex; 
+  flex-direction:row-reverse;           /* sit items side-by-side              */
+  align-items:center;
+  gap:8px;                 /* little air between buttons          */
+  position:relative;       /* context for the fly-out if you want it absolute later */
+}
+
+/* extra buttons are always flex – we just toggle visibility */
+.right-actions .extra-actions{
+  display:none;            /* hidden until .open is present       */
+  gap:8px;
+  position:absolute;
+  right:42px;   /* ≈ 34px button + 8px gap         */
+  top:0;
+  z-index:1;
+}
+
+.right-actions.open .extra-actions{
+  display:flex;
+}
+
+
+
+.right-actions .extra-actions .component-action-btn:not(.on):hover {
+    background-color:#424242 !important;   /* unchanged grey */
+}
+
+/* keep the darker ‘selected’ colour when the button is .on */
+.right-actions .extra-actions .component-action-btn.on:hover {
+    background-color:#616161 !important;   /* same as .on */
+}
+
+
+
+/* ─── CKEditor – dark modal look ─────────────────────────────────── */
+.ck.ck-editor {
+  /* toolbar & borders */
+  --ck-color-toolbar-background  : #2b2d31;
+  --ck-color-toolbar-border      : #3a3d41;
+  --ck-color-base-border         : #3a3d41;
+
+  /* buttons */
+  --ck-color-button-default-background        : #2b2d31;
+  --ck-color-button-default-hover-background  : #36393f;
+  --ck-color-button-on-background             : #5865f2;
+  --ck-color-button-on-hover-background       : #6772f9;
+
+  /* text & bg */
+  --ck-color-base-background : #202225;
+  --ck-color-base-foreground : #f0f0f0;
+  --ck-color-text            : #f0f0f0;
+}
+
+.ck.ck-editor .ck-button.ck-on svg,
+.ck.ck-editor .ck-button.ck-on .ck-button__label {
+  color: #fff !important;
+  fill : #fff !important;
+}
+
+/* editable area – “≈ 10 rows” */
+.ck-editor__editable_inline {
+  min-height : 260px;          /* ≈ 10 normal text-rows        */
+  padding    : 12px;
+  background : #1e1f24;
+  color      : #e2e3e5;
+  font-size  : 14px;
+  line-height: 1.45;
+}
+
+
+#saveTplModal textarea {
+  min-height: 120px;
+  max-height: 360px;     /* ≈ 5 rows with your 24 px line-height */
+  height:     120px;
+  resize: vertical;      /* users can still drag bigger if they want */
+}
+
+/* ─── toast tray (unchanged) ─────────────────────────────── */
+#notifyTray{
+  position:fixed;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  z-index:5000;
+  pointer-events:none;
+}
+
+/* ─── toast card ─────────────────────────────────────────── */
+.notify-card{
+  --ttl: 2s;
+
+  opacity:0;
+  transform:translateY(-10px);
+  transition:opacity .25s ease, transform .25s ease;
+
+  background:rgba(44,44,44,.85);   /* neutral charcoal */
+  color:#e4e4e4;
+  padding:12px 14px;
+  font-size:14px;
+  line-height:1.35;
+  pointer-events:auto;
+  border-radius:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,.35);
+}
+
+.notify-card.warn,
+.notify-card.error{ background:rgba(44,44,44,.85); }
+
+.notify-card.show{
+  opacity:1;
+  transform:translateY(0);
+}
+
+/* ─── subtle grey-white “breathing” glow ─────────────────── */
+@media (prefers-reduced-motion:no-preference){
+
+  /* pop-in entrance */
+  @keyframes popIn{
+    0%   { transform:scale(.85) translateY(20px); opacity:0; }
+    60%  { transform:scale(1.05) translateY(0);   opacity:1; }
+    100% { transform:scale(1)     translateY(0); }
+  }
+  .notify-card.show{ animation:popIn .35s cubic-bezier(.25,1.4,.4,1) both; }
+
+  /* slightly stronger opacity pulse */
+  @keyframes breathe{
+    0%,100% { opacity:.08; }
+    50%     { opacity:.22; }
+  }
+
+  .notify-card::before{
+    content:'';
+    position:absolute; inset:0;
+    border-radius:inherit;
+    pointer-events:none;
+    mix-blend-mode:overlay;
+    filter:blur(4px);
+
+    /* three overlapping radial splashes, the first gives a faint white kiss */
+    background:
+      radial-gradient(180% 140% at 50% -30%,   /* faint top glow */
+        rgba(255,255,255,.15) 0%,
+        rgba(255,255,255,0)   60%),
+      radial-gradient(140% 140% at 30% 15%,    /* main sheen */
+        rgba(255,255,255,.45) 0%,
+        rgba(255,255,255,0)   55%),
+      radial-gradient(140% 150% at 85% 80%,    /* corner fill */
+        rgba(255,255,255,.30) 0%,
+        rgba(255,255,255,0)   65%);
+    animation:breathe var(--ttl) ease-in-out infinite;
+  }
+
+  .notify-card:hover{
+    transform:translateY(-3px) scale(1.01);
+    box-shadow:0 4px 12px rgba(0,0,0,.45);
+  }
+}
+
+/* add to formBuilder.css */
+.akey-row        {display:flex;align-items:center;gap:12px;margin:6px 0}
+.akey-q          {flex:1 1 0}
+.akey-opts       {display:flex;gap:6px;flex-wrap:wrap}
+.akey-opt        {padding:2px 8px;border:1px solid #ccc;border-radius:4px;
+                  background:#f6f6f6;font-size:12px;cursor:pointer}
+.akey-opt.sel    {background:#1e87f0;color:#fff;border-color:#1e87f0}
+
+/* ─── AI side-chat (dark theme) ─────────────────────── */
+.ai-chat{
+  position:fixed; bottom:20px; right:20px;
+  width:900px; max-width: calc(100vw - 40px);/* still fits small screens       */ height:560px;
+  display:none; flex-direction:column;
+  border-radius:12px;
+  background:#2e2e2e;                /* darker body  */
+  color:#e3e3e3;
+  box-shadow:0 6px 24px rgba(0,0,0,.45);
+  overflow:hidden; z-index:3000;
+}
+.ai-chat.open{ display:flex; }
+
+.ai-chat header{
+  padding:12px 16px;
+  font-weight:600;
+  background:#424242;                /* match builder cards */
+  border-bottom:1px solid #555;
+}
+
+.ai-chat section{                    /* messages pane */
+  flex:1 1 auto;
+  padding:12px;
+  overflow-y:auto;
+  background:#2e2e2e;
+}
+
+.ai-chat pre{
+  margin:0 0 12px;
+  padding:8px 10px;
+  background:#333; border-radius:6px;
+  white-space:pre-wrap; word-break:break-word;
+  font-size:12px; color:#e3e3e3;
+}
+
+/* ─── form footer ------------------------------------------------ */
+.ai-chat form{
+  display:flex; align-items:flex-end;
+  gap:10px;
+  padding:12px;
+  background:#424242;
+  border-top:1px solid #555;
+}
+
+/* textarea prompt */
+.ai-chat form textarea{
+  flex: 1 1 auto;        /* fill all remaining width   */
+  width: 100%;
+  min-height: 6rem;      /* ≈ 4-line start height      */
+  max-height: 260px;     /* keeps it usable            */
+  resize: vertical;      /* user can drag taller       */
+
+  /* keep the builder look */
+  padding: 10px; line-height: 1.45;
+  border: 1px solid #555; border-radius: 6px;
+  background:#333; color:#e3e3e3;
+}
+
+/* upload (paper-clip) icon */
+.ai-chat form .upload-btn{
+  width:36px; height:36px;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid #555; border-radius:6px;
+  background:#333; cursor:pointer;
+}
+.ai-chat form .upload-btn:hover{ background:#616161; }
+.ai-chat form .upload-btn i{ pointer-events:none; color:#e3e3e3; font-size:16px; }
+
+/* send button */
+.ai-chat form button[type="submit"]{
+  padding:0 20px;
+  height:36px;
+  border:none; border-radius:6px;
+  background:#616161; color:#e3e3e3;
+  cursor:pointer; font-weight:600;
+}
+.ai-chat form button[type="submit"]:hover{ background:#757575; }
+
+
+.visually-hidden{
+  position:absolute!important;
+  width:1px;height:1px;
+  margin:-1px;padding:0;border:0;
+  overflow:hidden;clip:rect(0 0 0 0);
+  white-space:nowrap;
+}
+
+/* ─── AI mic button ───────────────────────────────────────────── */
+.mic-btn{
+  width: 42px; min-width: 42px;           /* square icon button   */
+  border: none; border-radius: 6px;
+  background:#444; color:#ddd; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition: background .2s;
+}
+.mic-btn:hover     { background:#555; }
+.mic-btn.listening { background:#c33; color:#fff; }  /* live glow */
+.mic-btn:disabled  { opacity:.5; cursor:default; }

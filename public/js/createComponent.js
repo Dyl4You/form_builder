@@ -71,61 +71,90 @@ var ensureGloballyUniqueKey = (typeof require === 'function')
     currency   : 'Currency',
     editgrid   : 'Edit Grid',
     columns    : 'Columns',
-    quiz       : 'Quiz', 
     fieldset   : 'Grouping'
   };
   
 
+
   /**
    * Builds a brand-new component object.
    */
-  function createComponent(type, typedLabel = "", options = [], hideLabelParam = false) {
-    const finalLabel = typedLabel.trim() || DEFAULT_LABELS[type] || _.startCase(type);
+function createComponent(type, typedLabel = "", options = [],
+                           hideLabelParam = false, passMark) {
+
+    /* -------------------------------------------------------------
+       Accept either:
+         • "Description"                     ← string
+         • { en:"Description", fr:"Description (FR)" }  ← object
+       and turn it into one string that Form.io can show,
+       eg.  "Description / Description (FR)"
+    ------------------------------------------------------------- */
+    function normaliseLabel(lbl) {
+      if (typeof lbl === 'string') return lbl;
+      if (lbl && typeof lbl === 'object') {
+        const en = lbl.en      || lbl.english || "";
+        const fr = lbl.fr      || lbl.french  || "";
+        if (en && fr) return `${en} / ${fr}`;
+        return en || fr || "";
+      }
+      return "";
+    }
+
+    const rawLabel   = normaliseLabel(typedLabel);
+    const finalLabel = rawLabel.trim() ||
+                       DEFAULT_LABELS[type] ||
+                       _.startCase(type);
+
     const generatedKey = generateUniqueKey(finalLabel);
 
     let baseComp = {
       label: finalLabel,
-      hideLabel: hideLabelParam,
+      hideLabel: hideLabelParam === undefined ? false : hideLabelParam,
       key: generatedKey,
       type: type,
       input: true,
       tableView: true,
       reportable: true,
-      validate: { required: true }
+      validate: { required: true }   // ← stays ON for new one-click comps
     };
 
-    if (type === 'fieldset') {
+    if (type === 'fieldset' || type === 'speed') {
       baseComp.input = false;
       baseComp.tableView = false;
       // If user typed no label => legend is blank
-      baseComp.legend = typedLabel.trim() ? finalLabel : "";
+      baseComp.legend = rawLabel.trim() ? finalLabel : "";
       baseComp.components = [];
+      baseComp.validate   = { required:true };
     }
     else if (type === 'grouping') {
       // Create the outer grouping fieldset with a fixed key "grouping".
-      let outerComp = {
-        label: "Grouping",
-        labelWidth: 30,
-        labelMargin: 3,
-        key: "grouping",
-        type: "fieldset",
-        input: false,
-        tableView: false,
-        components: []
-      };
-    
-      // Create an inner fieldset using the normal 'fieldset' branch.
-      let innerComp = createComponent("fieldset", typedLabel, options, hideLabelParam);
-      // Set the inner fieldset's legend to the spoken label.
-      innerComp.legend = typedLabel;
-      // Append "1" to the key if it doesn't end with a digit.
-      if (!/\d+$/.test(innerComp.key)) {
-        innerComp.key = innerComp.key + "1";
-      }
-    
-      outerComp.components.push(innerComp);
-      return outerComp;
-    }    
+    const grpLabel = rawLabel.trim() || DEFAULT_LABELS.fieldset;    // “New”, “Area A”, …
+          const grpKey   = generateUniqueKey(grpLabel);                         // → new, new1 …
+
+          const outerComp = {
+            label      : grpLabel,  // shows on the card & in JSON
+            legend     : grpLabel,  // what Form.io renders at runtime
+            key        : grpKey,
+            type       : 'fieldset',
+            input      : false,
+            tableView  : false,
+            components : []
+          };
+        
+          /* ---------- INNER field-set (so users can still add columns, etc.) */
+          const innerComp = createComponent(
+            'fieldset',
+            typedLabel,            // keeps the same text
+            options,
+            hideLabelParam
+          );
+        
+          // ensure the inner key ends with a digit (actions driver logic relies on it)
+          if (!/\d+$/.test(innerComp.key)) innerComp.key += '1';
+        
+          outerComp.components.push(innerComp);
+          return outerComp;
+       }  
     else if (type === 'editgrid') {
       // Your exact Edit Grid JSON snippet:
       baseComp = {
@@ -346,85 +375,6 @@ var ensureGloballyUniqueKey = (typeof require === 'function')
         ]
       };
     }
-    else if (type === 'quiz') {
-      const qKey = generateUniqueKey(finalLabel || 'quiz');
-    
-      /* ---------- helpers that grade the quiz on every change -------- */
-      const gradeJS = `
-      const quiz   = instance.parent;
-      const cfg    = quiz.component;
-      const answer = cfg.answerKey || {};
-      const pass   = Number(cfg.passMark) || 0;
-    
-      let correct = 0, wrong = 0, good = [], bad = [];
-    
-      Object.keys(answer).forEach(k => {
-        /* ── work out the nice display number ───────────────── */
-        let num = k;                                 // fallback
-        const cmp = (cfg.components || []).find(c => c.key === k);
-        if (cmp && typeof cmp.label === 'string') {
-          /* pull leading digits from “1. Question” etc. */
-          const m = cmp.label.match(/^\\s*(\\d+)/);
-          if (m) num = m[1];
-        }
-    
-        const expected = Object.keys(answer[k]).find(v => answer[k][v]);
-        const given    = data[k];
-    
-        if (String(given) === String(expected)) { correct++; good.push(num); }
-        else if (given)                           { wrong++;  bad.push(num); }
-      });
-    
-      /* expose counts so the three textareas can share them */
-      util.correct   = correct;
-      util.incorrect = wrong;
-      util.good      = good;
-      util.bad       = bad;
-    `;
-    
-      /* build the three hidden summary fields */
-      const makeField = (lbl, key, calcBody) => ({
-        label         : lbl,
-        key,
-        type          : 'textarea',
-        rows          : 1,          // single-row textarea
-        autoExpand    : false,
-        builderHidden : true,
-        calculateValue: `${gradeJS}\n${calcBody}`
-      });
-    
-      const summaryBits = [
-        makeField('Correct Answers',   'correctAnswersDisplay',
-                  `value = util.good.length ? util.good.join(', ') : '';`),
-    
-        makeField('Incorrect Answers', 'incorrectAnswers',
-                  `value = util.bad.length  ? util.bad.join(', ') : '';`),
-    
-        makeField('Result',            'quizResult',
-                  `value = (util.correct >= (Number(instance.parent.component.passMark)||0) &&
-                            util.correct) ? 'Pass' : 'Fail';`)
-      ];
-    
-      /* ---------- quiz container ------------------------------------ */
-      baseComp = {
-        label      : finalLabel,
-        hideLabel  : true,
-        key        : qKey,
-        type       : 'fieldset',
-        input      : false,
-        tableView  : false,
-    
-        /* edited via the inline UI in renderAnswerKeyBoard() */
-        passMark   : 0,
-    
-        /* answer-key object mutated live by renderAnswerKeyBoard() */
-        answerKey  : {},
-    
-        components : [ ...summaryBits ],
-    
-        validate   : { required:true }
-      };
-    }
     else if (type === 'radio') {
       baseComp.tableView = false;
       baseComp.inline = true;
@@ -451,6 +401,105 @@ var ensureGloballyUniqueKey = (typeof require === 'function')
         }))
       };
     }
+    else if (type === 'speed') {
+      /**
+       * Build an outer fieldset that will hold multiple
+       * “radio + actions” items. We won't initially fill the
+       * .components here. We'll fill them after the user
+       * picks their “labels” and “values” in the custom modal.
+       */
+      baseComp = {
+        label      : finalLabel,
+        legend     : finalLabel,
+        hideLabel  : false,
+        key        : generateUniqueKey(finalLabel || 'speed'),
+        type       : 'speed',
+        input      : false,
+        tableView  : false,
+        components : [],  // we’ll fill these after the modal
+        validate   : { required:true }
+      };
+    }
+    /*──────────────────────────────────────────────────────────────
+      QUIZ  –  outer wrapper + boilerplate internals
+    ──────────────────────────────────────────────────────────────*/
+    else if (type === 'quiz') {
+      const quizKey  = generateUniqueKey('quiz');
+      const passKey  = ensureGloballyUniqueKey('passMark','');
+      const gridKey  = ensureGloballyUniqueKey('answerKey','');
+
+      /* outer <fieldset> that the user sees/places */
+      baseComp = {
+        label       : 'Quiz',
+        hideLabel   : true,
+        key         : quizKey,
+        type        : 'fieldset',
+        customType  : 'quiz',               // flag so builder can spot it
+        input       : false,
+        tableView   : false,
+        components  : [
+          /* ── 1 ▸ Pass-mark (hidden at run-time) ───────────── */
+          {
+            label            : 'Pass Mark',
+            labelWidth       : 30,
+            labelMargin      : 3,
+            hideLabel        : true,
+            tableView        : false,
+            reportable       : false,
+            defaultValue : passMark ?? 0, 
+            persistent       : true,
+            customConditional: "show = instance.options && instance.options.builder;",
+            key              : passKey,
+            type             : 'number',
+            input            : true
+          },
+          /* ── 2 ▸ Answer-key datagrid (hidden at run-time) ─── */
+          {
+            label            : 'Answer Key',
+            labelWidth       : 30,
+            labelMargin      : 3,
+            hideLabel        : true,
+            tableView        : false,
+            reportable       : false,
+            customConditional: "show = instance.options && instance.options.builder;",
+            key              : gridKey,
+            type             : 'datagrid',
+            input            : true,
+            reorder          : false,
+            components       : [
+              { label:'Question Label', key:'question', type:'textfield', input:true, tableView:true },
+              { label:'Correct Answer Label or Value', key:'answer', type:'textfield', input:true, tableView:true }
+            ],
+            defaultValue     : []           // rows will be pushed in automatically
+          },
+          {
+          label    : 'Correct',
+          key      : ensureGloballyUniqueKey('correct'),
+          type     : 'number',
+          input    : true,
+          persistent: true,
+          builderHidden: true
+        },
+        {
+          label    : 'Incorrect',
+          key      : ensureGloballyUniqueKey('incorrect'),
+          type     : 'number',
+          input    : true,
+          persistent: true,
+          builderHidden: true
+        },
+        {
+          label    : 'Result',
+          key      : ensureGloballyUniqueKey('result'),
+          type     : 'textfield',
+          input    : true,
+          persistent: true,
+          builderHidden: true
+        }
+          /* user-added radio/select components will follow here */
+        ]
+      };
+    }
     else if (type === 'selectboxes') {
       baseComp.tableView = false;
       baseComp.inputType = 'checkbox';
@@ -470,8 +519,16 @@ var ensureGloballyUniqueKey = (typeof require === 'function')
       baseComp.storage = 'base64';
       baseComp.fileTypes = [];
       baseComp.defaultValue = [];
-      baseComp.multiple = false;
+      baseComp.multiple = true;
     }
+    else if (type === 'textarea') {
+    baseComp.rows        = 1;      // start at one visible row
+    baseComp.autoExpand  = true;   // grow while typing
+    baseComp.labelWidth  = 30;     // keep your defaults consistent
+    baseComp.labelMargin = 3;
+    baseComp.reportable  = true;   // appears in exports
+    baseComp.tableView   = true;   // shows in submissions grid
+  }
     else if (type === 'phoneNumber') {
       baseComp.type = 'phoneNumber';
       baseComp.defaultValue = '';
@@ -581,12 +638,17 @@ var ensureGloballyUniqueKey = (typeof require === 'function')
       baseComp.reportable = true;
       baseComp.validate = { required: true };
     }
-    else if (type === 'currency') {
-      baseComp.type = 'currency';
-      baseComp.currency = 'USD';
-      baseComp.decimal = '.';
-      baseComp.thousands = ',';
+    else if (type === 'number') {
+      baseComp.type = 'number';
+      if (arguments[4] !== undefined) baseComp.defaultValue = arguments[4];
     }
+    else if (type === 'currency') {
+      baseComp.type      = 'currency';
+      baseComp.currency  = 'USD';
+      baseComp.decimal   = '.';
+      baseComp.thousands = ',';
+      if (arguments[4] !== undefined) baseComp.defaultValue = arguments[4];
+     }
     else if (type === 'account') {
       baseComp.widget = 'choicesjs';
       baseComp.labelWidth = 30;
@@ -605,7 +667,7 @@ var ensureGloballyUniqueKey = (typeof require === 'function')
         values: []
       };
     }
-    else if (type === 'disclaimer') {
+      else if (type === 'disclaimer' || type === 'content') {
       baseComp = {
         html: `<p>Your disclaimer text goes here.</p>`,
         label: finalLabel,
@@ -694,7 +756,6 @@ var ensureGloballyUniqueKey = (typeof require === 'function')
       component.hideLabel || false
     );
   }
-
   function handleOptionComponent(component, compIndex) {
     const currentOptions = component.type === "select"
       ? (component.data?.values || [])
@@ -781,7 +842,7 @@ var ensureGloballyUniqueKey = (typeof require === 'function')
       hideLabel    : true,
       tableView    : false,
       fileTypes    : [{ label:"", value:"" }],
-      imageSize    : "400",
+      imageSize    : "800",
       key          : photoKey,
       type         : "file",
       input        : true,
@@ -933,12 +994,10 @@ var ensureGloballyUniqueKey = (typeof require === 'function')
   
       if (oldDigits === newDigits) return;                     // this one’s fine
   
-      const bases = ['actions','comments','photos','tasks','tasksgroup'];
+      const bases = ['comments','photos','tasks','tasksgroup'];
 bases.forEach(base => {
   // don’t ever rename our five driver keys
-  if (['actions','comments','photos','tasks','tasksgroup'].includes(base)) {
-    return;
-  }
+  if (base === 'actions') return;
   const oldKey = base + oldDigits;
   const newKey = base + newDigits;
 
