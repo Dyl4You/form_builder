@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Form.io component (minimal)",
+  "type": "object",
+  "required": ["type", "key"],
+  "properties": {
+    "type":  { "type": "string" },
+    "key":   { "type": "string" },
+    "label": { "type": "string" },
+
+
+    "components": {
+      "type": "array",
+      "items": { "$ref": "#" }
+    }
+  },
+  "additionalProperties": true
+}

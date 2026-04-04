@@ -9,19 +9,68 @@ var ensureGloballyUniqueKey = (typeof require === 'function')
 
 (function(){
   // --- Environment Detection ---
-  var lodash, generateUniqueKey;
+  var lodash, generateUniqueKey, normalizeLowerCamelCase, normalizeOptionValue, normalizeChoiceItems, normalizeAllCapsTitle, normalizeComponentLabel;
   if (typeof require === 'function') {
+    const parserUtils = require('../../src/parser/unifiedParser');
+    const namingUtils = require('../../src/utils/naming');
     lodash = require('lodash');
-    ({ generateUniqueKey } = require('../../src/parser/unifiedParser'));
+    ({ generateUniqueKey, normalizeOptionValue } = parserUtils);
+    normalizeLowerCamelCase =
+      parserUtils.normalizeLowerCamelCase ||
+      function(value, fallback) {
+        return lodash.camelCase(value) || fallback || 'key';
+      };
+    normalizeOptionValue =
+      normalizeOptionValue ||
+      function(value, fallback) {
+        return normalizeLowerCamelCase(value, fallback || 'option');
+      };
+    normalizeChoiceItems = null;
+    normalizeAllCapsTitle =
+      namingUtils.normalizeAllCapsTitle ||
+      function(value) {
+        return String(value ?? '').trim();
+      };
+    normalizeComponentLabel =
+      namingUtils.normalizeComponentLabel ||
+      function(value, componentType) {
+        const trimmed = String(value ?? '').trim();
+        return normalizeAllCapsTitle(trimmed);
+      };
   } else {
     lodash = window._;
+    normalizeLowerCamelCase =
+      window.normalizeLowerCamelCase ||
+      function(value, fallback) {
+        return lodash.camelCase(value) || fallback || 'key';
+      };
+    normalizeOptionValue =
+      window.normalizeOptionValue ||
+      function(value, fallback) {
+        return normalizeLowerCamelCase(value, fallback || 'option');
+      };
+    normalizeChoiceItems = window.normalizeChoiceItems || null;
+    normalizeAllCapsTitle =
+      window.normalizeAllCapsTitle ||
+      function(value) {
+        return String(value ?? '').trim();
+      };
+    normalizeComponentLabel =
+      window.normalizeComponentLabel ||
+      function(value, componentType) {
+        const trimmed = String(value ?? '').trim();
+        return normalizeAllCapsTitle(trimmed);
+      };
     generateUniqueKey = window.generateUniqueKey || function(label) {
-      var baseKey = label.toLowerCase().replace(/[^a-z0-9]/g, '');
+      var baseKey = normalizeLowerCamelCase(label, 'key');
       var uniqueKey = baseKey;
       var counter = 1;
       if (!window._usedKeys) window._usedKeys = {};
       while(window._usedKeys[uniqueKey]){
         uniqueKey = baseKey + counter++;
+      }
+      if (typeof window.reserveUsedKey === 'function') {
+        return window.reserveUsedKey(uniqueKey);
       }
       window._usedKeys[uniqueKey] = true;
       return uniqueKey;
@@ -43,36 +92,801 @@ var ensureGloballyUniqueKey = (typeof require === 'function')
    * and returns a new array ensuring each .value is unique.
    */
   function ensureUniqueValues(items) {
-    const used = {};
+    if (typeof normalizeChoiceItems === "function") {
+      return normalizeChoiceItems(items, 'option').items;
+    }
+
+    const used = new Set();
     return items.map(item => {
-      const baseVal = _.camelCase(item.label);
+      const baseVal = normalizeOptionValue(item?.value || item?.label, 'option');
       let newVal = baseVal;
       let i = 1;
-      while (used[newVal]) {
+      while (used.has(newVal)) {
         newVal = baseVal + i++;
       }
-      used[newVal] = true;
+      used.add(newVal);
       return { ...item, value: newVal };
     });
   }
 
+  function normalizeBuilderTitleLabel(labelText = "", componentType = "") {
+    const trimmed = String(labelText || "").trim();
+    if (!trimmed) return "";
+    return normalizeComponentLabel(trimmed, componentType);
+  }
+
   const DEFAULT_LABELS = {
     disclaimer : 'Disclaimer',
-    textarea   : 'Text Area',
+    textarea   : 'Short Input',
+    checkbox   : 'Checkbox',
     account    : 'Worker',
-    choiceList : 'Choice List',
+    choiceList : 'Choices',
+    componentGroup: 'Field Group',
     survey     : 'Survey',
-    file       : 'Upload',
-    phoneNumber: 'Phone Number',
+    quiz       : 'Knowledge Check',
+    file       : 'Photo',
+    documents  : 'Documents',
+    phoneNumber: 'Phone',
     address    : 'Address',
-    asset      : 'Asset',
+    asset      : 'Equipment',
     datetime   : 'Date / Time',
     number     : 'Number',
     currency   : 'Currency',
-    editgrid   : 'Edit Grid',
+    editgrid   : 'Custom Table',
+    datagrid   : 'Basic Table',
     columns    : 'Columns',
-    fieldset   : 'Grouping'
+    fieldset   : 'Section'
   };
+
+  function buildQuizCalculation(finalValueExpression) {
+    return `/* ---------- helpers ---------- */
+var A = Array.isArray;
+
+function schemaOf(source) {
+  if (!source || typeof source !== 'object') return null;
+  return source.component && typeof source.component === 'object'
+    ? source.component
+    : source;
+}
+
+function normalize(value) {
+  return String(value == null ? '' : value).trim().toLowerCase();
+}
+
+function tokensOf(raw) {
+  return String(raw == null ? '' : raw)
+    .split(',')
+    .map(function(part) { return part.trim(); })
+    .filter(Boolean);
+}
+
+function toSorted(value) {
+  return A(value)
+    ? value.slice().map(function(item) { return String(item); }).sort()
+    : value == null || value === ''
+      ? []
+      : [String(value)];
+}
+
+function optionEntries(component) {
+  var schema = schemaOf(component) || {};
+  return A(schema.data && schema.data.values)
+    ? schema.data.values
+    : A(schema.values)
+      ? schema.values
+      : [];
+}
+
+function matchText(component) {
+  var schema = schemaOf(component) || {};
+  return [schema.key, schema.label]
+    .map(function(part) { return String(part || ''); })
+    .join(' ')
+    .toLowerCase();
+}
+
+function flat(list, out) {
+  out = out || [];
+
+  (list || []).forEach(function(entry) {
+    var component = schemaOf(entry);
+    if (!component) return;
+
+    out.push(component);
+
+    if (A(component.components)) flat(component.components, out);
+    if (component.type === 'columns' && A(component.columns)) {
+      component.columns.forEach(function(column) {
+        flat((column && column.components) || [], out);
+      });
+    }
+    if (A(component.rows)) {
+      component.rows.forEach(function(row) {
+        if (A(row)) {
+          row.forEach(function(column) {
+            flat((column && column.components) || [], out);
+          });
+        } else if (row && row.components) {
+          flat(row.components, out);
+        }
+      });
+    }
+  });
+
+  return out;
+}
+
+function getQuizQuestionComponents(root) {
+  var rootSchema = schemaOf(root) || {};
+  var out = [];
+
+  function walk(list) {
+    (list || []).forEach(function(entry) {
+      var component = schemaOf(entry);
+      if (!component || component.builderHidden) return;
+
+      var keyText = String(component.key || '').toLowerCase();
+      if (component.customType === 'quiz') {
+        walk(component.components || []);
+        return;
+      }
+
+      if (
+        component.type === 'fieldset' &&
+        (/^quizsetup/.test(keyText) || /^results$/.test(keyText) || /^quizresults/.test(keyText))
+      ) {
+        return;
+      }
+
+      if (['select', 'radio', 'selectboxes'].indexOf(component.type) !== -1) {
+        out.push(component);
+        return;
+      }
+
+      if (A(component.components)) walk(component.components);
+      if (component.type === 'columns' && A(component.columns)) {
+        component.columns.forEach(function(column) {
+          walk((column && column.components) || []);
+        });
+      }
+    });
+  }
+
+  var questionsFieldset = (rootSchema.components || []).find(function(entry) {
+    var component = schemaOf(entry);
+    return component && component.type === 'fieldset' && /^quizquestions/i.test(component.key || '');
+  });
+
+  if (questionsFieldset) {
+    walk(questionsFieldset.components || []);
+  } else {
+    walk(rootSchema.components || []);
+  }
+
+  return out;
+}
+
+function ancestorSchemas() {
+  var out = [];
+  var seen = [];
+
+  function push(schema) {
+    if (!schema || seen.indexOf(schema) !== -1) return;
+    seen.push(schema);
+    out.push(schema);
+  }
+
+  push(currentSchema);
+
+  var cursor = instance && instance.parent;
+  while (cursor) {
+    push(schemaOf(cursor.component || cursor));
+    cursor = cursor.parent;
+  }
+
+  push(rootSchema);
+  return out;
+}
+
+function matchesFieldsetKey(component, baseName, suffix) {
+  var schema = schemaOf(component) || {};
+  var key = String(schema.key || '').trim().toLowerCase();
+  return key === (String(baseName || '') + String(suffix == null ? '' : suffix)).toLowerCase();
+}
+
+function getQuizScopeSuffix() {
+  var schemas = ancestorSchemas();
+
+  for (var index = 0; index < schemas.length; index += 1) {
+    var key = String((schemas[index] && schemas[index].key) || '').trim();
+    var match = key.match(/^(quizquestions|quizsetup|quizresults|results|quizsummary|result|incorrectanswers|passmark|answerkey)(\d*)$/i);
+    if (match) return match[2];
+  }
+
+  return null;
+}
+
+function getDirectChildFieldset(root, names, suffix) {
+  var children = (schemaOf(root) || {}).components || [];
+
+  for (var index = 0; index < children.length; index += 1) {
+    var child = schemaOf(children[index]);
+    if (!child || child.type !== 'fieldset') continue;
+
+    for (var nameIndex = 0; nameIndex < (names || []).length; nameIndex += 1) {
+      if (matchesFieldsetKey(child, names[nameIndex], suffix)) {
+        return child;
+      }
+    }
+  }
+
+  return null;
+}
+
+function isQuizScope(scope) {
+  var schema = schemaOf(scope) || {};
+  var components = flat(schema.components || []);
+  var questionComponents = getQuizQuestionComponents(schema);
+  var hasAnswerGrid = components.some(function(entry) {
+    return entry && entry.type === 'datagrid' && /answerkey/i.test(matchText(entry));
+  });
+  var hasPassMark = components.some(function(entry) {
+    return entry && entry.type === 'number' && /passmark/i.test(matchText(entry));
+  });
+  var hasResults = components.some(function(entry) {
+    return entry && entry.type === 'textarea' && /(^result$|quizresult|incorrectanswers)/i.test(matchText(entry));
+  });
+
+  return questionComponents.length > 0 && hasAnswerGrid && (hasPassMark || hasResults);
+}
+
+function createSiblingQuizScope(root, suffix) {
+  if (suffix == null) return null;
+
+  var questionSection = getDirectChildFieldset(root, ['quizquestions'], suffix);
+  var setupSection = getDirectChildFieldset(root, ['quizsetup'], suffix);
+  var resultsSection = getDirectChildFieldset(root, ['quizresults', 'results'], suffix);
+  var components = [questionSection, setupSection, resultsSection].filter(Boolean);
+
+  if (!components.length) return null;
+
+  var scope = { components: components };
+  return isQuizScope(scope) ? scope : null;
+}
+
+function findQuizRoot() {
+  var ancestors = ancestorSchemas();
+
+  for (var index = 0; index < ancestors.length; index += 1) {
+    if (ancestors[index] && ancestors[index].customType === 'quiz') {
+      return ancestors[index];
+    }
+  }
+
+  for (var ancestorIndex = 0; ancestorIndex < ancestors.length; ancestorIndex += 1) {
+    var candidate = ancestors[ancestorIndex];
+    if (!candidate || candidate === rootSchema) continue;
+    if (isQuizScope(candidate)) return candidate;
+  }
+
+  var siblingScope = createSiblingQuizScope(rootSchema, getQuizScopeSuffix());
+  if (siblingScope) return siblingScope;
+
+  return isQuizScope(rootSchema) ? rootSchema : rootSchema;
+}
+
+function firstFilled(row, keys) {
+  var values = keys || [];
+
+  for (var index = 0; index < values.length; index += 1) {
+    var key = values[index];
+    if (!key) continue;
+
+    var cell = row && row[key];
+    if (cell !== undefined && cell !== null && String(cell).trim() !== '') {
+      return String(cell).trim();
+    }
+  }
+
+  return '';
+}
+
+function normalizeExpected(component, rawAnswer) {
+  var options = optionEntries(component);
+  var valueMap = {};
+
+  options.forEach(function(option) {
+    var value = String(option && option.value != null ? option.value : '').trim();
+    var label = String(option && option.label != null ? option.label : '').trim();
+    if (value) valueMap[normalize(value)] = value;
+    if (label) valueMap[normalize(label)] = value || label;
+  });
+
+  return tokensOf(rawAnswer)
+    .map(function(token) { return valueMap[normalize(token)] || token; })
+    .sort();
+}
+
+var currentSchema = schemaOf(component);
+var parentSchema = schemaOf(instance && instance.parent);
+var grandparentSchema = schemaOf(instance && instance.parent && instance.parent.parent);
+var rootSchema = schemaOf(form) || schemaOf(instance && instance.root) || {};
+var quizRoot = findQuizRoot();
+var components = flat(quizRoot.components || []);
+var answerGrid = components.find(function(entry) {
+  return entry && entry.type === 'datagrid' && /answerkey/i.test(matchText(entry));
+});
+var passMarkField = components.find(function(entry) {
+  return entry && entry.type === 'number' && /passmark/i.test(matchText(entry));
+});
+var answerRows = answerGrid && A(data && data[answerGrid.key]) && data[answerGrid.key].length
+  ? data[answerGrid.key]
+  : answerGrid && A(answerGrid.defaultValue)
+    ? answerGrid.defaultValue
+    : [];
+var answerGridColumns = answerGrid && A(answerGrid.components) ? answerGrid.components : [];
+var questionComponentKeyField = answerGridColumns.find(function(column) {
+  return /(questioncomponentkey|componentkey)/i.test(matchText(column));
+});
+var questionLabelField = answerGridColumns.find(function(column) {
+  return column !== questionComponentKeyField && /(questionlabel|question)/i.test(matchText(column));
+});
+var answerValueField = answerGridColumns.find(function(column) {
+  return /(answervalue|correctvalue|answer)/i.test(matchText(column));
+});
+var questionComponents = getQuizQuestionComponents(quizRoot);
+var expectedByKey = {};
+
+answerRows.forEach(function(row, index) {
+  var explicitKey = firstFilled(row, [
+    questionComponentKeyField && questionComponentKeyField.key,
+    'questioncomponentkey',
+    'questionComponentKey',
+    'questionkey',
+    'quizquestionkey',
+    'componentkey'
+  ]);
+
+  var matchedComponent = explicitKey
+    ? questionComponents.find(function(candidate) {
+        return String((candidate && candidate.key) || '') === explicitKey;
+      })
+    : null;
+
+  var label = firstFilled(row, [
+    questionLabelField && questionLabelField.key,
+    'questionlabel',
+    'questionLabel',
+    'question',
+    'quizquestion'
+  ]);
+
+  if (!matchedComponent && label) {
+    var labelMatches = questionComponents.filter(function(candidate) {
+      return normalize(candidate && candidate.label) === normalize(label);
+    });
+
+    if (labelMatches.length === 1) {
+      matchedComponent = labelMatches[0];
+    } else if (labelMatches.length > 1 && questionComponents[index]) {
+      matchedComponent = questionComponents[index];
+    }
+  }
+
+  if (!matchedComponent && questionComponents[index]) {
+    matchedComponent = questionComponents[index];
+  }
+
+  if (!matchedComponent || !matchedComponent.key) return;
+
+  var rawAnswer = firstFilled(row, [
+    answerValueField && answerValueField.key,
+    'answervalue',
+    'correctvalue',
+    'correctvalues',
+    'correctValueS',
+    'quizanswer',
+    'answer'
+  ]);
+
+  expectedByKey[matchedComponent.key] = normalizeExpected(matchedComponent, rawAnswer);
+});
+
+var correct = 0;
+var bad = [];
+
+questionComponents.forEach(function(componentSchema) {
+  if (!componentSchema || !componentSchema.key) return;
+
+  var right = expectedByKey[componentSchema.key];
+  if (!right) return;
+
+  var rawValue = data ? data[componentSchema.key] : undefined;
+  var user = componentSchema.type === 'selectboxes'
+    ? Object.keys(rawValue || {}).filter(function(key) { return rawValue[key]; }).sort()
+    : toSorted(rawValue);
+
+  if (!user.length) return;
+
+  var matches =
+    user.length === right.length &&
+    user.every(function(item, index) {
+      return normalize(item) === normalize(right[index]);
+    });
+
+  if (matches) {
+    correct += 1;
+    return;
+  }
+
+  bad.push(String(componentSchema.label || componentSchema.key || '').trim());
+});
+
+var total = Object.keys(expectedByKey).length || questionComponents.length || 1;
+var needed = Math.min(
+  total,
+  Math.max(1, Number(data && passMarkField && data[passMarkField.key]) || Number(passMarkField && passMarkField.defaultValue) || 1)
+);
+var quizState = {
+  bad: bad,
+  score: String(correct) + '/' + String(total),
+  result: correct >= needed ? 'Pass' : 'Try again'
+};
+
+quizState.resultText = quizState.result + ' - ' + quizState.score;
+value = ${finalValueExpression};`;
+  }
+
+  function buildQuizSummaryCalculation() {
+    return buildQuizCalculation('quizState.score');
+  }
+
+  function buildQuizResultCalculation() {
+    return buildQuizCalculation("quizState.resultText || ''");
+  }
+
+  function buildQuizIncorrectAnswersCalculation() {
+    return buildQuizCalculation("quizState.bad.length ? '<ul><li>' + quizState.bad.join('</li><li>') + '</li></ul>' : ''");
+  }
+
+  const EDITGRID_AUTO_ROW_COMPONENT_LIMIT = 8;
+
+  function buildAutoEditGridRowLayout(componentCount) {
+    const total = Math.max(1, Math.floor(Number(componentCount) || 0));
+    const layout = {};
+    let remaining = total;
+    let rowNumber = 1;
+
+    while (remaining > 0) {
+      const cols = Math.min(EDITGRID_AUTO_ROW_COMPONENT_LIMIT, remaining);
+      layout[rowNumber] = Array.from({ length: cols }, () => 1);
+      remaining -= cols;
+      rowNumber += 1;
+    }
+
+    return layout;
+  }
+
+  const DEFAULT_EDITGRID_ROW_LAYOUT = Object.freeze(
+    Object.fromEntries(
+      Object.entries(buildAutoEditGridRowLayout(1)).map(([key, row]) => [key, Object.freeze(row)])
+    )
+  );
+
+  const DEFAULT_EDITGRID_ADD_ANOTHER = "Add Another";
+
+  function cloneEditGridRowLayout(layout) {
+    const cloned = {};
+    Object.keys(layout || {}).forEach(key => {
+      cloned[key] = Array.isArray(layout[key]) ? layout[key].slice() : [];
+    });
+    return cloned;
+  }
+
+  function normalizeEditGridRowLayout(layout) {
+    const source = Array.isArray(layout) ? { 1: layout } : layout;
+    const normalized = {};
+
+    Object.keys(source || {})
+      .map(key => Number(key))
+      .filter(key => Number.isInteger(key) && key > 0)
+      .sort((a, b) => a - b)
+      .forEach(key => {
+        const spans = Array.isArray(source[key]) ? source[key] : source[String(key)];
+        const cleaned = (spans || [])
+          .map(span => Number(span))
+          .filter(span => Number.isFinite(span) && span > 0)
+          .map(span => Math.round(span));
+
+        if (cleaned.length) {
+          normalized[key] = cleaned;
+        }
+      });
+
+    return Object.keys(normalized).length
+      ? normalized
+      : cloneEditGridRowLayout(DEFAULT_EDITGRID_ROW_LAYOUT);
+  }
+
+  function serializeEditGridRowLayout(layout) {
+    const normalized = normalizeEditGridRowLayout(layout);
+    return Object.keys(normalized)
+      .map(key => `  ${key}:[${normalized[key].join(",")}],`)
+      .join("\n");
+  }
+
+  function countEditGridRowLayoutSlots(layout) {
+    const normalized = normalizeEditGridRowLayout(layout);
+    return Object.values(normalized).reduce((total, row) => total + row.length, 0);
+  }
+
+  function areEditGridRowLayoutsEqual(a, b) {
+    const left = normalizeEditGridRowLayout(a);
+    const right = normalizeEditGridRowLayout(b);
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+
+    if (leftKeys.length !== rightKeys.length) return false;
+
+    return leftKeys.every(key => {
+      const leftRow = left[key] || [];
+      const rightRow = right[key] || [];
+      if (leftRow.length !== rightRow.length) return false;
+      return leftRow.every((span, index) => span === rightRow[index]);
+    });
+  }
+
+  function formatEditGridRowLayoutInput(layout) {
+    return serializeEditGridRowLayout(layout);
+  }
+
+  function parseEditGridRowLayoutInput(input) {
+    const raw = String(input || "");
+    const matches = [...raw.matchAll(/(\d+)\s*:\s*\[([^\]]*)\]/g)];
+    if (!matches.length) return null;
+
+    const parsed = {};
+    matches.forEach(([, keyRaw, spansRaw]) => {
+      const key = Number(keyRaw);
+      const spans = spansRaw
+        .split(",")
+        .map(part => Number(String(part).trim()))
+        .filter(span => Number.isFinite(span) && span > 0)
+        .map(span => Math.round(span));
+
+      if (Number.isInteger(key) && key > 0 && spans.length) {
+        parsed[key] = spans;
+      }
+    });
+
+    return Object.keys(parsed).length ? normalizeEditGridRowLayout(parsed) : null;
+  }
+
+  function buildEditGridRowTemplate(config = {}) {
+    const rowLayout = normalizeEditGridRowLayout(config.rowLayout);
+    const layoutSource = serializeEditGridRowLayout(rowLayout);
+
+    return `{% var rowLayout = {
+${layoutSource}
+}; %}
+
+{%
+  var gapX = 4;
+  var gapY = 4;
+  var radius = 4;
+  var bottomW = 2;
+  var counterW = 34;
+
+  // First-row header alignment control
+  var headerLineH = 16;     // px
+  var headerPadY  = 4;      // px
+  var headerPadX  = 6;      // px
+  var headerMinLines = 2;
+  var headerMinH = (headerLineH * headerMinLines) + (headerPadY * 2);
+
+  var cellPadY  = 1;
+  var cellPadX  = 2;
+  var valuePadY = 1;
+  var valuePadX = 2;
+
+  var rows = [];
+  var logical = 1;
+  var i = 0;
+
+  while (i < components.length) {
+    var layout = rowLayout[logical] || [1,1,1];
+    var cells = [];
+
+    for (var j = 0; j < layout.length && i < components.length; j++) {
+      cells.push({ comp: components[i], span: layout[j] });
+      i++;
+    }
+
+    if (!cells.length) break;
+    rows.push(cells);
+    logical++;
+  }
+
+  function sumSpans(cells){
+    var t = 0;
+    for (var k = 0; k < cells.length; k++) t += (cells[k].span || 1);
+    return t || 1;
+  }
+
+  function widthStyle(span, total, cellCount){
+    var gutters = Math.max(0, (cellCount || 0) - 1);
+    var fixedPx = counterW + gapX + (gutters * gapX);
+    var ratio = total ? (span / total) : 1;
+
+    if (ratio < 0) ratio = 0;
+    ratio = Math.round(ratio * 1000000) / 1000000;
+
+    return "width:calc((100% - " + fixedPx + "px) * " + ratio + ") !important;";
+  }
+
+  var wrapStyle =
+    "width:100% !important;margin:0 !important;padding:0 !important;" +
+    "text-align:left !important;";
+
+  var tableStyle =
+    "display:table !important;width:100% !important;table-layout:fixed !important;" +
+    "border:0 !important;margin:0 !important;padding:0 !important;" +
+    "background:transparent !important;text-align:left !important;";
+
+  var rowStyle = "display:table-row !important;";
+
+  var cellBase =
+    "display:table-cell !important;vertical-align:top !important;" +
+    "text-align:left !important;border:0 !important;margin:0 !important;" +
+    "background:transparent !important;box-sizing:border-box !important;";
+
+  var gutterCell =
+    cellBase + "width:" + gapX + "px !important;padding:0 !important;";
+
+  var dataCell =
+    cellBase +
+    "padding:" + cellPadY + "px " + cellPadX + "px !important;" +
+    "border-bottom:" + bottomW + "px solid #e8e8e8 !important;" +
+    "border-radius:" + radius + "px !important;";
+
+  var headerChip =
+    "display:block !important;width:100% !important;box-sizing:border-box !important;" +
+    "background:#f4f4f4 !important;border-radius:" + radius + "px !important;" +
+    "padding:" + headerPadY + "px " + headerPadX + "px !important;" +
+    "font-size:13px !important;font-weight:700 !important;letter-spacing:.1px !important;" +
+    "text-align:left !important;" +
+    "line-height:" + headerLineH + "px !important;" +
+    "min-height:" + headerMinH + "px !important;" +
+    "white-space:normal !important;" +
+    "overflow:hidden !important;";
+
+  var valueStyle =
+    "display:block !important;width:100% !important;box-sizing:border-box !important;" +
+    "font-size:13px !important;text-align:left !important;" +
+    "padding:" + valuePadY + "px " + valuePadX + "px !important;" +
+    "min-height:0 !important;" +
+    "overflow-wrap:anywhere !important;word-break:break-word !important;";
+
+  var spacerStyle =
+    "display:block !important;height:" + gapY + "px !important;";
+
+  var btnBase =
+    "display:inline-flex !important;align-items:center !important;justify-content:center !important;" +
+    "width:34px !important;height:34px !important;min-width:34px !important;min-height:34px !important;" +
+    "padding:0 !important;margin:0 0 0 8px !important;border-radius:6px !important;" +
+    "text-decoration:none !important;cursor:pointer !important;user-select:none !important;" +
+    "line-height:1 !important;box-sizing:border-box !important;";
+
+  var btnLight  = btnBase + "background:#f8f9fa !important;border:1px solid #ced4da !important;color:#495057 !important;";
+  var btnDanger = btnBase + "background:#dc3545 !important;border:1px solid #dc3545 !important;color:#fff !important;";
+
+  var actionsWrap =
+    "width:100% !important;text-align:right !important;margin-top:4px !important;padding-top:0 !important;";
+%}
+
+{% rows.forEach(function(cells, rIdx){ var total = sumSpans(cells); %}
+
+  <div style="{{ wrapStyle }}">
+    <div style="{{ tableStyle }}">
+      <div style="{{ rowStyle }}">
+
+        <div style="{{ gutterCell }}"></div>
+
+        {% cells.forEach(function(cell, cIdx){ %}
+          <div style="{{ dataCell + widthStyle(cell.span, total, cells.length) }}">
+
+            {% if (typeof rowIndex !== 'undefined' && rowIndex === 0) { %}
+              <div style="{{ headerChip }}">{{ cell.comp.label }}</div>
+            {% } %}
+
+            <div style="{{ valueStyle }}">{{ getView(cell.comp, row[cell.comp.key]) }}</div>
+          </div>
+
+          {% if (cIdx < cells.length - 1) { %}
+            <div style="{{ gutterCell }}"></div>
+          {% } %}
+        {% }); %}
+
+      </div>
+    </div>
+  </div>
+
+  {% if (rIdx < rows.length - 1) { %}
+    <div style="{{ spacerStyle }}"></div>
+  {% } %}
+
+{% }); %}
+
+{% if (!instance.options.readOnly && !instance.disabled) { %}
+  <div style="{{ actionsWrap }}">
+    <button class="editRow" style="{{ btnLight }}" type="button" tabindex="0" aria-label="Edit row">
+      <i class="{{ iconClass('edit') }}" style="line-height:1 !important;pointer-events:none;"></i>
+    </button>
+
+    {% if (instance.hasRemoveButtons && instance.hasRemoveButtons()) { %}
+      <button class="removeRow" style="{{ btnDanger }}" type="button" tabindex="0" aria-label="Delete row">
+        <i class="{{ iconClass('trash') }}" style="line-height:1 !important;pointer-events:none;"></i>
+      </button>
+    {% } %}
+  </div>
+{% } %}
+`;
+  }
+
+  function resolveEditGridTemplateConfig(component) {
+    const source = component || {};
+    const storedLayout = source.editGridRowLayout || source.rowLayout;
+    const parsedLayout = storedLayout ? null : parseEditGridRowLayoutInput(source?.templates?.row);
+    const rowLayout = normalizeEditGridRowLayout(storedLayout || parsedLayout);
+    const hasAddAnother = Object.prototype.hasOwnProperty.call(source, "addAnother");
+
+    return {
+      rowLayout,
+      addAnother: hasAddAnother ? String(source.addAnother ?? "") : DEFAULT_EDITGRID_ADD_ANOTHER
+    };
+  }
+
+  function applyEditGridTemplateConfig(component, config = {}) {
+    if (!component) return component;
+
+    const current = resolveEditGridTemplateConfig(component);
+    const hasAddAnother = Object.prototype.hasOwnProperty.call(config, "addAnother");
+    const rowLayout = normalizeEditGridRowLayout(config.rowLayout || current.rowLayout);
+    const addAnother = hasAddAnother ? String(config.addAnother ?? "") : current.addAnother;
+
+    // Legacy schemas may still carry editGridRowLayout, but we should not emit it.
+    delete component.editGridRowLayout;
+    component.addAnother = addAnother;
+    component.templates = component.templates || {};
+    component.templates.header = "";
+    component.templates.row = buildEditGridRowTemplate({ rowLayout });
+
+    return component;
+  }
+
+  function syncAutomaticEditGridTemplateConfig(component) {
+    if (!component || component.type !== "editgrid") return component;
+
+    const current = resolveEditGridTemplateConfig(component);
+    const currentSlotCount = countEditGridRowLayoutSlots(current.rowLayout);
+    const autoLayoutForCurrentSlots = buildAutoEditGridRowLayout(currentSlotCount);
+
+    if (!areEditGridRowLayoutsEqual(current.rowLayout, autoLayoutForCurrentSlots)) {
+      return component;
+    }
+
+    const childCount = Array.isArray(component.components) ? component.components.length : 0;
+    const nextAutoLayout = buildAutoEditGridRowLayout(childCount);
+
+    if (areEditGridRowLayoutsEqual(current.rowLayout, nextAutoLayout)) {
+      return component;
+    }
+
+    return applyEditGridTemplateConfig(component, {
+      rowLayout: nextAutoLayout,
+      addAnother: current.addAnother
+    });
+  }
   
 
 
@@ -104,11 +918,24 @@ function createComponent(type, typedLabel = "", options = [],
     const finalLabel = rawLabel.trim() ||
                        DEFAULT_LABELS[type] ||
                        _.startCase(type);
+    const normalizedFinalLabel = normalizeBuilderTitleLabel(finalLabel, type);
+    const getFieldsetLegend = (labelText = "") => {
+      const trimmed = String(labelText || "").trim();
+      if (!trimmed) return "";
+      const normalized = trimmed.toLowerCase();
+      const genericFieldsetLabels = new Set([
+        String(DEFAULT_LABELS.fieldset || "Section").toLowerCase(),
+        "grouping"
+      ]);
+      return genericFieldsetLabels.has(normalized)
+        ? ""
+        : normalizeBuilderTitleLabel(trimmed, "fieldset");
+    };
 
-    const generatedKey = generateUniqueKey(finalLabel);
+    const generatedKey = generateUniqueKey(normalizedFinalLabel);
 
     let baseComp = {
-      label: finalLabel,
+      label: normalizedFinalLabel,
       hideLabel: hideLabelParam === undefined ? false : hideLabelParam,
       key: generatedKey,
       type: type,
@@ -121,19 +948,19 @@ function createComponent(type, typedLabel = "", options = [],
     if (type === 'fieldset' || type === 'speed') {
       baseComp.input = false;
       baseComp.tableView = false;
-      // If user typed no label => legend is blank
-      baseComp.legend = rawLabel.trim() ? finalLabel : "";
+      // Suppress the visible legend for generic "Grouping" fieldsets.
+      baseComp.legend = getFieldsetLegend(baseComp.label || normalizedFinalLabel);
       baseComp.components = [];
       baseComp.validate   = { required:true };
     }
     else if (type === 'grouping') {
       // Create the outer grouping fieldset with a fixed key "grouping".
-    const grpLabel = rawLabel.trim() || DEFAULT_LABELS.fieldset;    // “New”, “Area A”, …
+    const grpLabel = normalizeBuilderTitleLabel(rawLabel.trim() || DEFAULT_LABELS.fieldset, 'fieldset');    // “New”, “Area A”, …
           const grpKey   = generateUniqueKey(grpLabel);                         // → new, new1 …
 
           const outerComp = {
             label      : grpLabel,  // shows on the card & in JSON
-            legend     : grpLabel,  // what Form.io renders at runtime
+            legend     : getFieldsetLegend(grpLabel),  // what Form.io renders at runtime
             key        : grpKey,
             type       : 'fieldset',
             input      : false,
@@ -156,185 +983,14 @@ function createComponent(type, typedLabel = "", options = [],
           return outerComp;
        }  
     else if (type === 'editgrid') {
-      // Your exact Edit Grid JSON snippet:
       baseComp = {
-        label: finalLabel,
+        label: normalizedFinalLabel,
         labelWidth: 30,
         labelMargin: 3,
         customClass: "removeborder table-responsive",
         hideLabel: hideLabelParam,
         tableView: false,
         modal: true,
-        templates: {
-          header: "",
-          row: `<style>
-  .thc-table {
-    width: 100%;
-    border-collapse: separate !important;
-    border-spacing: 5px !important;
-    table-layout: fixed !important;
-    overflow: hidden !important;
-    min-width: 600px;
-  }
-  .thc-table th,
-  .thc-table td {
-    font-size: 14px;
-    padding: 5px;
-    word-break: break-word;
-    vertical-align: top;
-    border-radius: 5px;
-    text-align: left;
-  }
-  .thc-table thead th {
-    background: #f4f4f4; /* Colored background for headers */
-  }
-  .thc-table tbody td {
-    border-bottom: 5px solid #e8e8e8;
-  }
-  .thc-table tr {
-    transition: background-color 0.6s ease !important;
-  }
-  .thc-table tr:hover {
-    background-color: #f4f4f4;
-  }
-  .thc-table .row-counter {
-    border-left: 5px solid #e8e8e8;
-    border-bottom: none;
-  }
-  .thc-table tr {
-    background-color: transparent;
-    transition: background-color 0.3s ease;
-  }
-  /* Button container styling */
-  .button-container {
-    display: flex !important;
-    justify-content: flex-end !important;
-    gap: 0.5rem !important;
-    margin: 0.5rem 0 !important;
-  }
-
-  /* Icon buttons styling */
-  .button-container .btn {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 2.5rem !important;
-    height: 2.5rem !important;
-    padding: 0.5rem !important;
-    font-size: 1.25rem !important;
-    border-radius: 0.25rem !important;
-  }
-
-  /* Specific button styling */
-  .btn-light {
-    background-color: #f8f9fa !important;
-    border: 1px solid #ced4da !important;
-    color: #495057 !important;
-  }
-
-  .btn-light:hover {
-    background-color: #e2e6ea !important;
-  }
-
-  .btn-danger {
-    background-color: #dc3545 !important;
-    border: 1px solid #dc3545 !important;
-    color: #fff !important;
-  }
-
-  .btn-danger:hover {
-    background-color: #c82333 !important;
-  }
-
-  .thc-table .list-group {
-    display: table !important;
-  }
-
-  @media (max-width: 600px) {
-    /* Keep button container horizontal on mobile */
-    .button-container {
-      justify-content: flex-end !important;
-      gap: 0.25rem !important;
-    }
-  }
-  .bg-low-risks {
-    color: #2fa844 !important;
-  }
-  .bg-moderate-risks {
-    color: #fac007 !important;
-  }
-  .bg-high-risks {
-    color: #f77e15 !important;
-  }
-  .bg-danger-risks {
-    color: #dc3545 !important;
-  }
-  .fw-bold {
-    font-weight: bold;
-  }
-  .signature-cell {
-    max-width: 100%;
-    height: auto;
-  }
-  @media only screen and (max-width: 600px) {
-    .bg-low-risks {
-      color: #2fa844 !important;
-    }
-    .bg-moderate-risks {
-      color: #fac007 !important;
-    }
-    .bg-high-risks {
-      color: #f77e15 !important;
-    }
-    .bg-danger-risks {
-      color: #dc3545 !important;
-    }
-  }
-  .thc-table .row-counter {
-    width: 30px;
-    text-align: center;
-    font-weight: bold;
-    background: #f4f4f4;
-    padding: 5px;
-    vertical-align: middle;
-  }
-</style>
-
-<table class="thc-table">
-  {% if (rowIndex === 0) { %}
-  <thead>
-    <tr>
-      {% components.forEach(function(component) { %}
-        <th>{{ component.label }}</th>
-      {% }) %}
-    </tr>
-  </thead>
-  {% } %}
-  <tbody>
-<tr>
-  {% components.forEach(function(component) { %}
-    <td>
-      {{ getView(component, row[component.key]) }}
-    </td>
-  {% }) %}
-</tr>
-  </tbody>
-</table>
-
-{% if (!instance.options.readOnly && !instance.disabled) { %}
-  <div class="button-container">
-    <button class="btn btn-default btn-light editRow">
-      <i class="{{ iconClass('edit') }}"></i>
-    </button>
-    {% if (instance.hasRemoveButtons && instance.hasRemoveButtons()) { %}
-      <button class="btn btn-danger removeRow">
-        <i class="{{ iconClass('trash') }}"></i>
-      </button>
-    {% } %}
-  </div>
-{% } %}
-`,
-        },
         rowDrafts: false,
         key: generatedKey,
         type: "editgrid",
@@ -342,11 +998,46 @@ function createComponent(type, typedLabel = "", options = [],
         input: true,
         components: [] 
       };
+      applyEditGridTemplateConfig(baseComp, {
+        rowLayout: DEFAULT_EDITGRID_ROW_LAYOUT,
+        addAnother: DEFAULT_EDITGRID_ADD_ANOTHER
+      });
+    }
+    else if (type === 'datagrid') {
+      baseComp = {
+        label: normalizedFinalLabel,
+        labelWidth: 30,
+        labelMargin: 3,
+        reorder: false,
+        addAnotherPosition: "bottom",
+        layoutFixed: false,
+        enableRowGroups: false,
+        initEmpty: false,
+        hideLabel: true,
+        tableView: false,
+        defaultValue: [{}],
+        key: generatedKey,
+        type: "datagrid",
+        input: true,
+        components: [
+          {
+            label: "Grouping",
+            labelWidth: 30,
+            labelMargin: 3,
+            hideLabel: true,
+            key: ensureGloballyUniqueKey("fieldSet", ""),
+            type: "fieldset",
+            input: false,
+            tableView: false,
+            components: []
+          }
+        ]
+      };
     }
     else if (type === 'columns') {
       // always start with TWO columns (12-grid → 6+6)
       baseComp = {
-        label: finalLabel,
+        label: normalizedFinalLabel,
         labelWidth: 30,
         labelMargin: 3,
         key: generatedKey,
@@ -391,7 +1082,7 @@ function createComponent(type, typedLabel = "", options = [],
     else if (type === 'select') {
       baseComp.widget = "html5";
       baseComp.validate = { required: true };
-      baseComp.placeholder = "Tap & Select";
+      baseComp.placeholder = "-- Select --";
       const uniqueItems = ensureUniqueValues(options);
       baseComp.data = {
         values: uniqueItems.map(opt => ({
@@ -409,10 +1100,10 @@ function createComponent(type, typedLabel = "", options = [],
        * picks their “labels” and “values” in the custom modal.
        */
       baseComp = {
-        label      : finalLabel,
-        legend     : finalLabel,
+        label      : normalizedFinalLabel,
+        legend     : normalizedFinalLabel,
         hideLabel  : false,
-        key        : generateUniqueKey(finalLabel || 'speed'),
+        key        : generateUniqueKey(normalizedFinalLabel || 'speed'),
         type       : 'speed',
         input      : false,
         tableView  : false,
@@ -424,79 +1115,188 @@ function createComponent(type, typedLabel = "", options = [],
       QUIZ  –  outer wrapper + boilerplate internals
     ──────────────────────────────────────────────────────────────*/
     else if (type === 'quiz') {
-      const quizKey  = generateUniqueKey('quiz');
-      const passKey  = ensureGloballyUniqueKey('passMark','');
-      const gridKey  = ensureGloballyUniqueKey('answerKey','');
+      const passMarkValue = Math.max(
+        1,
+        Number(
+          passMark && typeof passMark === 'object'
+            ? passMark.passMark
+            : passMark
+        ) || 1
+      );
+      const questionFieldKey = 'questionLabel';
+      const answerFieldKey = 'correctValueS';
+      const questionComponentKeyField = 'questionComponentKey';
+      const summaryKey = generateUniqueKey('quizSummary');
+      const passKey = generateUniqueKey('passMark');
+      const gridKey = generateUniqueKey('answerKey');
+      const questionsFieldsetKey = generateUniqueKey('quizQuestions');
+      const setupFieldsetKey = generateUniqueKey('quizSetup');
+      const resultsFieldsetKey = generateUniqueKey('quizResults');
+      const resultKey = generateUniqueKey('quizResult');
+      const incorrectKey = generateUniqueKey('incorrectAnswers');
 
-      /* outer <fieldset> that the user sees/places */
       baseComp = {
-        label       : 'Quiz',
-        hideLabel   : true,
-        key         : quizKey,
-        type        : 'fieldset',
-        customType  : 'quiz',               // flag so builder can spot it
-        input       : false,
-        tableView   : false,
-        components  : [
-          /* ── 1 ▸ Pass-mark (hidden at run-time) ───────────── */
+        label: normalizedFinalLabel,
+        hideLabel: hideLabelParam === undefined ? true : hideLabelParam,
+        legend: '',
+        key: generateUniqueKey(normalizedFinalLabel || 'quiz'),
+        type: 'fieldset',
+        customType: 'quiz',
+        input: false,
+        tableView: false,
+        components: [
           {
-            label            : 'Pass Mark',
-            labelWidth       : 30,
-            labelMargin      : 3,
-            hideLabel        : true,
-            tableView        : false,
-            reportable       : false,
-            defaultValue : passMark ?? 0, 
-            persistent       : true,
-            customConditional: "show = instance.options && instance.options.builder;",
-            key              : passKey,
-            type             : 'number',
-            input            : true
-          },
-          /* ── 2 ▸ Answer-key datagrid (hidden at run-time) ─── */
-          {
-            label            : 'Answer Key',
-            labelWidth       : 30,
-            labelMargin      : 3,
-            hideLabel        : true,
-            tableView        : false,
-            reportable       : false,
-            customConditional: "show = instance.options && instance.options.builder;",
-            key              : gridKey,
-            type             : 'datagrid',
-            input            : true,
-            reorder          : false,
-            components       : [
-              { label:'Question Label', key:'question', type:'textfield', input:true, tableView:true },
-              { label:'Correct Answer Label or Value', key:'answer', type:'textfield', input:true, tableView:true }
-            ],
-            defaultValue     : []           // rows will be pushed in automatically
+            label: 'Quiz Questions',
+            legend: '',
+            labelWidth: 30,
+            labelMargin: 3,
+            key: questionsFieldsetKey,
+            type: 'fieldset',
+            input: false,
+            tableView: false,
+            components: []
           },
           {
-          label    : 'Correct',
-          key      : ensureGloballyUniqueKey('correct'),
-          type     : 'number',
-          input    : true,
-          persistent: true,
-          builderHidden: true
-        },
-        {
-          label    : 'Incorrect',
-          key      : ensureGloballyUniqueKey('incorrect'),
-          type     : 'number',
-          input    : true,
-          persistent: true,
-          builderHidden: true
-        },
-        {
-          label    : 'Result',
-          key      : ensureGloballyUniqueKey('result'),
-          type     : 'textfield',
-          input    : true,
-          persistent: true,
-          builderHidden: true
-        }
-          /* user-added radio/select components will follow here */
+            label: 'Quiz Setup',
+            legend: '',
+            labelWidth: 30,
+            labelMargin: 3,
+            hidden: true,
+            key: setupFieldsetKey,
+            type: 'fieldset',
+            input: false,
+            tableView: false,
+            builderHidden: true,
+            components: [
+              {
+                label: 'Quiz Summary',
+                labelWidth: 30,
+                labelMargin: 3,
+                hidden: true,
+                tableView: false,
+                reportable: false,
+                clearOnHide: false,
+                redrawOn: 'data',
+                refreshOn: 'data',
+                calculateValue: buildQuizSummaryCalculation(),
+                key: summaryKey,
+                type: 'textfield',
+                input: true
+              },
+              {
+                label: 'Pass Mark',
+                labelWidth: 30,
+                labelMargin: 3,
+                description: 'Enter the minimum number of correct answers required to pass.',
+                mask: false,
+                tableView: false,
+                reportable: false,
+                defaultValue: passMarkValue,
+                delimiter: false,
+                requireDecimal: false,
+                inputFormat: 'plain',
+                truncateMultipleSpaces: false,
+                clearOnHide: false,
+                key: passKey,
+                type: 'number',
+                input: true,
+                persistent: true
+              },
+              {
+                label: 'Answer Key',
+                labelWidth: 30,
+                labelMargin: 3,
+                description: 'Choose the correct answer values for each quiz question.',
+                reorder: false,
+                addAnotherPosition: 'bottom',
+                layoutFixed: false,
+                enableRowGroups: false,
+                initEmpty: false,
+                tableView: false,
+                defaultValue: [],
+                clearOnHide: false,
+                key: gridKey,
+                type: 'datagrid',
+                input: true,
+                components: [
+                  {
+                    label: 'Question Label',
+                    labelWidth: 30,
+                    labelMargin: 3,
+                    tableView: true,
+                    reportable: true,
+                    key: questionFieldKey,
+                    type: 'textfield',
+                    input: true
+                  },
+                  {
+                    label: 'Question Component Key',
+                    labelWidth: 30,
+                    labelMargin: 3,
+                    hidden: true,
+                    tableView: false,
+                    reportable: false,
+                    key: questionComponentKeyField,
+                    type: 'textfield',
+                    input: true
+                  },
+                  {
+                    label: 'Correct Value(s)',
+                    labelWidth: 30,
+                    labelMargin: 3,
+                    tableView: true,
+                    reportable: true,
+                    key: answerFieldKey,
+                    type: 'textfield',
+                    input: true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            label: 'Results',
+            legend: '',
+            labelWidth: 30,
+            labelMargin: 3,
+            key: resultsFieldsetKey,
+            type: 'fieldset',
+            input: false,
+            tableView: false,
+            components: [
+              {
+                label: 'Result',
+                labelWidth: 30,
+                labelMargin: 3,
+                rows: 1,
+                autoExpand: true,
+                disabled: true,
+                tableView: true,
+                reportable: true,
+                redrawOn: 'data',
+                refreshOn: 'data',
+                calculateValue: buildQuizResultCalculation(),
+                key: resultKey,
+                type: 'textarea',
+                input: true
+              },
+              {
+                label: 'Incorrect Answers',
+                labelWidth: 30,
+                labelMargin: 3,
+                editor: 'ckeditor',
+                tableView: true,
+                reportable: false,
+                redrawOn: 'data',
+                refreshOn: 'data',
+                calculateValue: buildQuizIncorrectAnswersCalculation(),
+                key: incorrectKey,
+                type: 'textarea',
+                input: true,
+                isUploadEnabled: false
+              }
+            ]
+          }
         ]
       };
     }
@@ -514,12 +1314,39 @@ function createComponent(type, typedLabel = "", options = [],
         flag: ""
       }));
     }
+    else if (type === 'checkbox') {
+      baseComp.labelWidth = 30;
+      baseComp.labelMargin = 3;
+      baseComp.tableView = false;
+      baseComp.reportable = true;
+      delete baseComp.hideLabel;
+      delete baseComp.validate;
+    }
     else if (type === 'file') {
       baseComp.type = 'file';
+      baseComp.labelWidth = 30;
+      baseComp.labelMargin = 3;
+      baseComp.tableView = false;
       baseComp.storage = 'base64';
-      baseComp.fileTypes = [];
+      baseComp.fileTypes = [{ label: "", value: "image/*" }];
       baseComp.defaultValue = [];
       baseComp.multiple = true;
+      baseComp.image = true;
+      baseComp.imageSize = "400";
+      baseComp.webcam = false;
+    }
+    else if (type === 'documents') {
+      baseComp.type = 'documents';
+      baseComp.labelWidth = 30;
+      baseComp.labelMargin = 3;
+      baseComp.tableView = false;
+      delete baseComp.storage;
+      delete baseComp.fileTypes;
+      delete baseComp.defaultValue;
+      delete baseComp.multiple;
+      delete baseComp.image;
+      delete baseComp.imageSize;
+      delete baseComp.webcam;
     }
     else if (type === 'textarea') {
     baseComp.rows        = 1;      // start at one visible row
@@ -562,89 +1389,68 @@ function createComponent(type, typedLabel = "", options = [],
         }
       ];
     }
-    else if (type === 'datetime') {
+    else if (['datetime', 'date', 'time'].includes(type)) {
       baseComp.customType = 'datetime';
-      baseComp.type = 'textfield';
+      baseComp.type = 'datetime';
+      baseComp.__dateTimeModeManual = false;
+      const fallbackMode = type === 'date' ? 'date' : type === 'time' ? 'time' : 'datetime';
+      if (typeof window !== "undefined" && typeof window.inferDateTimeModeFromLabel === "function") {
+        baseComp.__mode = window.inferDateTimeModeFromLabel(rawLabel, fallbackMode);
+      } else {
+        baseComp.__mode = fallbackMode;
+      }
+      baseComp.tableView = false;
+      baseComp.labelWidth = 30;
+      baseComp.labelMargin = 3;
+      baseComp.reportable = true;
+      baseComp.datePicker = { disableWeekends: false, disableWeekdays: false };
+      baseComp.enableMinDateInput = false;
+      baseComp.enableMaxDateInput = false;
+
+      const isDate = baseComp.__mode === 'date';
+      const isTime = baseComp.__mode === 'time';
       baseComp.widget = {
         type: "calendar",
-        altInput: true,
-        allowInput: true,
-        clickOpens: true,
-        enableDate: true,
-        enableTime: true,
-        mode: "single",
-        noCalendar: false,
-        format: "MMMM d, yyyy h:mm a",
-        dateFormat: "MMMM d, yyyy h:mm a",
+        displayInTimezone: "viewer",
+        locale: "en",
         useLocaleSettings: false,
-        hourIncrement: 1,
-        minuteIncrement: 5,
-        time_24hr: false,
-        saveAs: "text",
-        displayInTimezone: "viewer",
-        locale: "en"
-      };
-      baseComp.tableView = true;
-      baseComp.reportable = true;
-      baseComp.validate = { required: true };
-    }
-    else if (type === 'date') {
-      baseComp.customType = 'date';
-      baseComp.type = 'textfield';
-      baseComp.widget = {
-        type: "calendar",
-        altInput: true,
         allowInput: true,
-        clickOpens: true,
-        enableDate: true,
-        enableTime: false,
         mode: "single",
-        noCalendar: false,
-        format: "MMMM d, yyyy",
-        dateFormat: "MMMM d, yyyy",
-        useLocaleSettings: false,
+        enableTime: !isDate,
+        noCalendar: isTime,
+        format: isTime ? "hh:mm a" : isDate ? "yyyy-MM-dd" : "yyyy-MM-dd hh:mm a",
         hourIncrement: 1,
-        minuteIncrement: 5,
+        minuteIncrement: 1,
         time_24hr: false,
-        saveAs: "text",
-        displayInTimezone: "viewer",
-        locale: "en"
+        minDate: null,
+        disableWeekends: false,
+        disableWeekdays: false,
+        maxDate: null
       };
-      baseComp.tableView = true;
-      baseComp.reportable = true;
-      baseComp.validate = { required: true };
-    }
-    else if (type === 'time') {
-      baseComp.customType = 'time';
-      baseComp.type = 'textfield';
-      baseComp.widget = {
-        type: "calendar",
-        altInput: true,
-        allowInput: true,
-        clickOpens: true,
-        enableTime: true,
-        noCalendar: true,
-        format: "hh:mm a",
-        dateFormat: "hh:mm a",
-        useLocaleSettings: true,
-        hourIncrement: 1,
-        minuteIncrement: 5,
-        time_24hr: false,
-        saveAs: "text",
-        displayInTimezone: "viewer",
-        locale: "en"
-      };
-      baseComp.tableView = true;
-      baseComp.reportable = true;
+
       baseComp.validate = { required: true };
     }
     else if (type === 'number') {
-      baseComp.type = 'number';
+      baseComp.__numericStyleManual = false;
+      const inferredStyle =
+        (typeof window !== "undefined" && typeof window.inferNumberStyleFromLabel === "function")
+          ? window.inferNumberStyleFromLabel(rawLabel, "number")
+          : "number";
+
+      baseComp.type = inferredStyle;
+      if (inferredStyle === "currency") {
+        baseComp.currency  = "USD";
+        baseComp.delimiter = true;
+        baseComp.decimal   = ".";
+        baseComp.thousands = ",";
+      }
       if (arguments[4] !== undefined) baseComp.defaultValue = arguments[4];
     }
     else if (type === 'currency') {
+      baseComp.__numericStyleManual = false;
       baseComp.type      = 'currency';
       baseComp.currency  = 'USD';
+      baseComp.delimiter = true;
       baseComp.decimal   = '.';
       baseComp.thousands = ',';
       if (arguments[4] !== undefined) baseComp.defaultValue = arguments[4];
@@ -653,7 +1459,8 @@ function createComponent(type, typedLabel = "", options = [],
       baseComp.widget = 'choicesjs';
       baseComp.labelWidth = 30;
       baseComp.labelMargin = 3;
-      baseComp.reportable = false;
+      baseComp.multiple = false;
+      baseComp.reportable = true;
       baseComp.data = {
         values: []
       };
@@ -662,6 +1469,7 @@ function createComponent(type, typedLabel = "", options = [],
       baseComp.widget = 'choicesjs';
       baseComp.labelWidth = 30;
       baseComp.labelMargin = 3;
+      baseComp.multiple = false;
       baseComp.reportable = false;
       baseComp.data = {
         values: []
@@ -670,7 +1478,7 @@ function createComponent(type, typedLabel = "", options = [],
       else if (type === 'disclaimer' || type === 'content') {
       baseComp = {
         html: `<p>Your disclaimer text goes here.</p>`,
-        label: finalLabel,
+        label: normalizedFinalLabel,
         labelWidth: 30,
         labelMargin: 3,
         refreshOnChange: false,
@@ -683,7 +1491,7 @@ function createComponent(type, typedLabel = "", options = [],
     }
     else if (type === 'survey') {
       baseComp = {
-        label: finalLabel,
+        label: normalizedFinalLabel,
         labelWidth: 30,
         labelMargin: 3,
         hideLabel: hideLabelParam,
@@ -706,7 +1514,7 @@ function createComponent(type, typedLabel = "", options = [],
     openLabelOptionsModal(
       (newLabel, updatedOptions, disclaimText, sQ, sO, hideLbl) => {
         component.html = disclaimText || "";
-        component.label = newLabel;
+        component.label = normalizeBuilderTitleLabel(newLabel, component.type);
         component.hideLabel = !!hideLbl;
         updatePreview();
         // removed notification
@@ -725,7 +1533,7 @@ function createComponent(type, typedLabel = "", options = [],
   function handleSurveyComponent(component, compIndex) {
     openLabelOptionsModal(
       (finalLabel, finalOpts, finalDisclaimer, finalSurveyQs, finalSurveyOpts, finalHideLabel) => {
-        component.label = finalLabel;
+        component.label = normalizeBuilderTitleLabel(finalLabel, component.type);
         component.labelWidth = 30;
         component.labelMargin = 3;
         component.hideLabel = !!finalHideLabel;
@@ -762,7 +1570,7 @@ function createComponent(type, typedLabel = "", options = [],
       : (component.values || []);
     openLabelOptionsModal(
       (newLabel, updatedOptions, disclaim, sQ, sO, finalHideLabel) => {
-        component.label = newLabel;
+        component.label = normalizeBuilderTitleLabel(newLabel, component.type);
         component.hideLabel = !!finalHideLabel;
         if (component.type === "select") {
           component.data.values = ensureUniqueValues(updatedOptions);
@@ -786,7 +1594,7 @@ function createComponent(type, typedLabel = "", options = [],
   function handleGenericComponent(component, compIndex) {
     openLabelOptionsModal(
       (label, opts, disclaim, sQ, sO, hideLbl) => {
-        component.label = label;
+        component.label = normalizeBuilderTitleLabel(label, component.type);
         component.hideLabel = !!hideLbl;
         updatePreview();
         // removed notification
@@ -810,167 +1618,248 @@ function createComponent(type, typedLabel = "", options = [],
       ? ''
       : String(window._actionsCounter);
     window._actionsCounter++;
-  
-    const commentKey    = ensureGloballyUniqueKey('comments',   suffix);
-    const photoKey      = ensureGloballyUniqueKey('photos',     suffix);
-    const taskKey       = ensureGloballyUniqueKey('tasks',      suffix);
-    const tasksGroupKey = ensureGloballyUniqueKey('tasksgroup', suffix);
-    const actionsKey    = ensureGloballyUniqueKey('actions',    suffix);
-  
-  
-    /*---------- Comments -----------------------------------------------*/
-    const commentsComp = {
-      label        : "Comments",
-      labelWidth   : 30,
-      labelMargin  : 3,
-      autoExpand   : true,
-      tableView    : true,
-      reportable   : true,
-      validate     : { required: true },
-      key          : commentKey,
-      type         : "textarea",
-      input        : true,
+
+    const actionsGroupKey = ensureGloballyUniqueKey('actionsGroup', suffix);
+    const actionsKey = ensureGloballyUniqueKey('actions', suffix);
+    const commentsKey = ensureGloballyUniqueKey('comments', suffix);
+    const photosKey = ensureGloballyUniqueKey('photos', suffix);
+    const taskFieldsetKey = ensureGloballyUniqueKey('taskFieldset', suffix);
+    const tasksKey = ensureGloballyUniqueKey('tasks', suffix);
+
+    const actionsGroup = {
+      label: "Actions",
+      labelWidth: 30,
+      labelMargin: 3,
+      key: actionsGroupKey,
+      type: "fieldset",
+      input: false,
+      tableView: false,
       builderHidden: true,
-      conditional  : { show: true, when: actionsKey, eq: "comments" }
-    };
-  
-    /*---------- Photos -------------------------------------------------*/
-    const photosComp = {
-      label        : "Photos",
-      labelWidth   : 30,
-      labelMargin  : 3,
-      hideLabel    : true,
-      tableView    : false,
-      fileTypes    : [{ label:"", value:"" }],
-      imageSize    : "800",
-      key          : photoKey,
-      type         : "file",
-      input        : true,
-      builderHidden: true,
-      validate     : { required: true },
-      conditional  : { show: true, when: actionsKey, eq: "photos" }
-    };
-  
-    /*---------- inner Tasks component (no conditional) ---------------*/
-    const tasksComp = {
-      label        : "Tasks",
-      labelWidth   : 30,
-      labelMargin  : 3,
-      hideLabel    : true,
-      tableView    : false,
-      key          : taskKey,
-      type         : "tasks",
-      input        : true,
-      defaultOpen  : true,
-      data         : {},
-      taskTriggers : [],
-      components   : [
+      components: [
         {
-          label      : "Name",
-          key        : "title",
-          type       : "textfield",
-          input      : true,
-          tableView  : true,
-          validate   : { required: true },
-          labelWidth : 30,
-          labelMargin: 3
-        },
-        {
-          label      : "Type",
-          key        : "type",
-          type       : "select",
-          widget     : "html5",
-          input      : true,
-          tableView  : true,
-          validate   : { required: true },
-          data       : {
-            values: [
-              { label: "Corrective", value: "corrective" },
-              { label: "Preventive", value: "preventive" },
-              { label: "Task",       value: "task" }
-            ]
+          label: "Comments",
+          labelWidth: 30,
+          labelMargin: 3,
+          autoExpand: true,
+          tableView: true,
+          reportable: true,
+          validate: {
+            required: true
           },
-          labelWidth : 30,
-          labelMargin: 3
+          key: commentsKey,
+          customConditional: "const key = instance.parent.component.components.find(c => c.key.startsWith('actions'))?.key; show = row[key]?.comments;",
+          type: "textarea",
+          input: true
         },
         {
-          label        : "Priority",
-          key          : "priority",
-          type         : "select",
-          widget       : "html5",
-          input        : true,
-          tableView    : true,
-          defaultValue : "low",
-          validate     : { required: true },
-          data         : {
-            values: [
-              { label: "Low",    value: "low" },
-              { label: "Medium", value: "medium" },
-              { label: "High",   value: "high" }
-            ]
+          label: "Grouping",
+          labelWidth: 30,
+          labelMargin: 3,
+          builderHidden: true,
+          key: taskFieldsetKey,
+          customConditional: "const key = instance.parent.component.components.find(c => c.key.startsWith('actions'))?.key; show = row[key]?.task;",
+          type: "fieldset",
+          input: false,
+          tableView: false,
+          components: [
+            {
+              label: "Tasks",
+              labelWidth: 30,
+              labelMargin: 3,
+              tableView: false,
+              taskTriggers: [
+                {
+                  triggerType: "value",
+                  taskPriority: "low",
+                  triggerComponent: {},
+                  triggerValue: {},
+                  taskName: "",
+                  taskType: {},
+                  assignType: "",
+                  assignOptions: [],
+                  localId: "ej5qb2"
+                }
+              ],
+              key: tasksKey,
+              type: "tasks",
+              input: true,
+              defaultOpen: true,
+              data: {},
+              components: [
+                {
+                  label: "Name",
+                  labelWidth: 30,
+                  labelMargin: 3,
+                  tableView: true,
+                  reportable: false,
+                  key: "title",
+                  type: "textfield",
+                  input: true,
+                  validate: {
+                    required: true
+                  }
+                },
+                {
+                  label: "Type",
+                  widget: "html5",
+                  labelWidth: 30,
+                  labelMargin: 3,
+                  builderDisableAutoOther: true,
+                  tableView: true,
+                  reportable: false,
+                  data: {
+                    values: [
+                      {
+                        label: "Corrective",
+                        value: "6926684acbe67916d876869b"
+                      },
+                      {
+                        label: "Preventive",
+                        value: "6926684acbe679de4876869a"
+                      },
+                      {
+                        label: "Task",
+                        value: "6926684acbe6793558768699"
+                      }
+                    ]
+                  },
+                  key: "type",
+                  type: "select",
+                  input: true,
+                  validate: {
+                    required: true
+                  }
+                },
+                {
+                  label: "Priority",
+                  widget: "html5",
+                  labelWidth: 30,
+                  labelMargin: 3,
+                  builderDisableAutoOther: true,
+                  tableView: true,
+                  reportable: false,
+                  defaultValue: "low",
+                  data: {
+                    values: [
+                      {
+                        label: "Low",
+                        value: "low"
+                      },
+                      {
+                        label: "Medium",
+                        value: "medium"
+                      },
+                      {
+                        label: "High",
+                        value: "high"
+                      }
+                    ]
+                  },
+                  key: "priority",
+                  type: "select",
+                  input: true,
+                  validate: {
+                    required: true
+                  }
+                },
+                {
+                  label: "Assigned To",
+                  widget: "choicesjs",
+                  multiple: true,
+                  labelWidth: 30,
+                  labelMargin: 3,
+                  tableView: true,
+                  reportable: false,
+                  key: "assignedTo",
+                  type: "account",
+                  input: true,
+                  validate: {
+                    required: true
+                  },
+                  data: {
+                    values: [
+                      {
+                        label: "Cody Sangster",
+                        value: "Cody Sangster"
+                      },
+                      {
+                        label: "Dylan Sangster",
+                        value: "Dylan Sangster"
+                      },
+                      {
+                        label: "Spencer Pincott",
+                        value: "Spencer Pincott"
+                      },
+                      {
+                        label: "Spencer Pincott",
+                        value: "Spencer Pincott"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          label: "Photos",
+          labelWidth: 30,
+          labelMargin: 3,
+          tableView: false,
+          fileTypes: [
+            {
+              label: "",
+              value: ""
+            }
+          ],
+          validate: {
+            required: true
           },
-          labelWidth   : 30,
-          labelMargin  : 3
+          key: photosKey,
+          customConditional: "const key = instance.parent.component.components.find(c => c.key.startsWith('actions'))?.key; show = row[key]?.photos;",
+          type: "file",
+          imageSize: "400",
+          input: true
         },
         {
-          label      : "Assigned To",
-          key        : "assignedTo",
-          type       : "account",
-          widget     : "choicesjs",
-          multiple   : true,
-          input      : true,
-          tableView  : true,
-          validate   : { required: true },
-          data       : { values: [] },
-          labelWidth : 30,
-          labelMargin: 3
+          label: "Actions",
+          labelWidth: 30,
+          labelMargin: 3,
+          builderDisableAutoOther: true,
+          optionsLabelPosition: "right",
+          inline: true,
+          hideLabel: true,
+          tableView: false,
+          reportable: true,
+          values: [
+            {
+              label: "Comments",
+              value: "comments",
+              shortcut: "",
+              flag: ""
+            },
+            {
+              label: "Photos",
+              value: "photos",
+              shortcut: "",
+              flag: ""
+            },
+            {
+              label: "Task",
+              value: "task",
+              shortcut: "",
+              flag: ""
+            }
+          ],
+          key: actionsKey,
+          type: "selectboxes",
+          input: true,
+          inputType: "checkbox"
         }
       ]
     };
-    
-  
-    /*---------- wrapper fieldset that carries the conditional ---------*/
-    const tasksFieldset = {
-      label        : "Tasks",
-      key          : tasksGroupKey,
-      type         : "fieldset",
-      input        : false,
-      tableView    : false,
-      builderHidden: true,
-      hideLabel    : true,
-      conditional  : { show: true, when: actionsKey, eq: "task" },
-      components   : [ tasksComp ]
-    };
-  
-    /*---------- Actions driver ---------------------------------------*/
-    const actionsDriver = {
-      label                : "Actions",
-      labelWidth           : 30,
-      labelMargin          : 3,
-      inline               : true,
-      hideLabel            : true,
-      optionsLabelPosition : "right",
-      tableView            : false,
-      reportable           : true,
-      key                  : actionsKey,
-      type                 : "selectboxes",
-      inputType            : "checkbox",
-      input                : true,
-      values               : [
-        { label:"Comments", value:"comments" },
-        { label:"Photos",   value:"photos"   },
-        { label:"Task",     value:"task"     }
-      ],
-      builderHidden: true,
-      defaultValue : { comments:false, photos:false, task:false }
-    };
-  
-    return [
-      commentsComp,
-      photosComp,
-      tasksFieldset,
-      actionsDriver
-    ];
+
+    return [actionsGroup];
   }
   
   
@@ -994,19 +1883,35 @@ function createComponent(type, typedLabel = "", options = [],
   
       if (oldDigits === newDigits) return;                     // this one’s fine
   
-      const bases = ['comments','photos','tasks','tasksgroup'];
+      const bases = ['comments', 'photos', 'taskFieldset', 'tasks'];
 bases.forEach(base => {
   // don’t ever rename our five driver keys
   if (base === 'actions') return;
   const oldKey = base + oldDigits;
   const newKey = base + newDigits;
 
+        function renameNestedKeys(node) {
+          if (!node || typeof node !== 'object') return;
+          if (node.key === oldKey) node.key = newKey;
+          if (node.conditional?.when === oldKey) node.conditional.when = newKey;
+          if (Array.isArray(node.components)) {
+            node.components.forEach(renameNestedKeys);
+          }
+          if (Array.isArray(node.columns)) {
+            node.columns.forEach(col => {
+              if (Array.isArray(col?.components)) col.components.forEach(renameNestedKeys);
+            });
+          }
+        }
+
   
         parentArray.forEach(c => {
           /* rename component keys … */
           if (c.key === oldKey) {
-            delete window._usedKeys[c.key];
-            window._usedKeys[newKey] = true;
+            if (typeof window.releaseUsedKey === 'function') window.releaseUsedKey(c.key);
+            else delete window._usedKeys[c.key];
+            if (typeof window.reserveUsedKey === 'function') window.reserveUsedKey(newKey);
+            else window._usedKeys[newKey] = true;
             c.key = newKey;
           }
   
@@ -1014,12 +1919,7 @@ bases.forEach(base => {
           if (c.conditional?.when === oldKey) c.conditional.when = newKey;
   
           /* … and update deep‑nested components */
-          if (Array.isArray(c.components)) {
-            c.components.forEach(sub => {
-              if (sub.key === oldKey) sub.key = newKey;
-              if (sub.conditional?.when === oldKey) sub.conditional.when = newKey;
-            });
-          }
+          renameNestedKeys(c);
         });
   
         /* adjust the helper flag on the owner component (if any) */
@@ -1030,10 +1930,35 @@ bases.forEach(base => {
     });
   }
 
+  function findExistingActionsWrapper(parentArray, ownerComp) {
+    if (!Array.isArray(parentArray) || !ownerComp) return null;
+
+    if (ownerComp._actionsDriverKey) {
+      return parentArray.find(c => c?.key === ownerComp._actionsDriverKey) || null;
+    }
+
+    const ownerIdx = parentArray.indexOf(ownerComp);
+    if (ownerIdx === -1) return null;
+
+    const candidate = parentArray[ownerIdx + 1];
+    if (!candidate || candidate.type !== 'fieldset' || !candidate.builderHidden) return null;
+
+    const nested = Array.isArray(candidate.components) ? candidate.components : [];
+    const hasActionsDriver = nested.some(c =>
+      c && c.type === 'selectboxes' && /^actions\d*$/i.test(String(c.key || ''))
+    );
+
+    return hasActionsDriver ? candidate : null;
+  }
+
   function toggleActionsBundle(parentArray, enable, ownerComp) {
     /* ---------- ENABLE ---------- */
     if (enable) {
-      if (ownerComp._actionsDriverKey) return;           // already has one
+      const existingWrapper = findExistingActionsWrapper(parentArray, ownerComp);
+      if (existingWrapper?.key) {
+        ownerComp._actionsDriverKey = existingWrapper.key;
+        return;
+      }
   
       const bundle = buildActionsBundle(parentArray);
       const idx = parentArray.indexOf(ownerComp);
@@ -1043,9 +1968,13 @@ bases.forEach(base => {
         parentArray.splice(idx + 1, 0, ...bundle);
       }
   
-      // remember which driver belongs to this component
-      const driver = bundle.find(c => c.builderHidden && c.type === 'selectboxes');
-      ownerComp._actionsDriverKey = driver.key;
+      // Remember which hidden wrapper belongs to this component.
+      // Keys are normalized to lowercase, so regexes against "actionsGroup"
+      // are brittle here; the wrapper fieldset itself is the stable source.
+      const driver = bundle.find(c => c.type === 'fieldset' && c.builderHidden)
+        || bundle.find(c => c.type === 'fieldset')
+        || bundle.find(c => c.builderHidden && c.type === 'selectboxes');
+      if (driver && driver.key) ownerComp._actionsDriverKey = driver.key;
   
       compactActionBundles(parentArray);
       return;
@@ -1076,7 +2005,10 @@ bases.forEach(base => {
     }
   
     // 3. free them from the global registry so suffixes can be reused
-    toFree.forEach(key => delete window._usedKeys[key]);
+    toFree.forEach(key => {
+      if (typeof window.releaseUsedKey === 'function') window.releaseUsedKey(key);
+      else delete window._usedKeys[key];
+    });
   
     delete ownerComp._actionsDriverKey;
     compactActionBundles(parentArray);
@@ -1089,7 +2021,18 @@ bases.forEach(base => {
   if (typeof module !== "undefined" && module.exports) {
     module.exports = {
       createComponent,
-      ensureUniqueValues
+      ensureUniqueValues,
+      applyEditGridTemplateConfig,
+      buildEditGridRowTemplate,
+      buildAutoEditGridRowLayout,
+      formatEditGridRowLayoutInput,
+      parseEditGridRowLayoutInput,
+      resolveEditGridTemplateConfig,
+      syncAutomaticEditGridTemplateConfig
+      ,
+      buildQuizSummaryCalculation,
+      buildQuizResultCalculation,
+      buildQuizIncorrectAnswersCalculation
     };
   }
 
@@ -1097,5 +2040,15 @@ bases.forEach(base => {
   if (typeof window !== "undefined") {
     window.createComponent = createComponent;
     window.ensureUniqueValues = ensureUniqueValues;
+    window.applyEditGridTemplateConfig = applyEditGridTemplateConfig;
+    window.buildEditGridRowTemplate = buildEditGridRowTemplate;
+    window.buildAutoEditGridRowLayout = buildAutoEditGridRowLayout;
+    window.formatEditGridRowLayoutInput = formatEditGridRowLayoutInput;
+    window.parseEditGridRowLayoutInput = parseEditGridRowLayoutInput;
+    window.resolveEditGridTemplateConfig = resolveEditGridTemplateConfig;
+    window.syncAutomaticEditGridTemplateConfig = syncAutomaticEditGridTemplateConfig;
+    window.buildQuizSummaryCalculation = buildQuizSummaryCalculation;
+    window.buildQuizResultCalculation = buildQuizResultCalculation;
+    window.buildQuizIncorrectAnswersCalculation = buildQuizIncorrectAnswersCalculation;
   }
 })();

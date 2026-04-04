@@ -1,0 +1,2060 @@
+{
+  "label": "Grouping",
+  "key": "grouping",
+  "type": "fieldset",
+  "input": false,
+  "tableView": false,
+  "components": [
+    {
+      "label": "Equipment Inspection",
+      "hideLabel": false,
+      "key": "equipmentInspection",
+      "type": "fieldset",
+      "input": false,
+      "tableView": false,
+      "reportable": true,
+      "validate": {
+        "required": true
+      },
+      "legend": "Equipment Inspection",
+      "components": [
+        {
+          "html": "<p>Complete this inspection before equipment start-up.</p><ul><li>Tag unsafe equipment out of service immediately.</li><li>Attach photos for any defect that needs follow-up.</li><li>Escalate critical issues to the supervisor before the shift starts.</li></ul>",
+          "label": "Operator Notice",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "refreshOnChange": false,
+          "key": "operatorNotice",
+          "type": "content",
+          "customType": "disclaimer",
+          "input": false,
+          "tableView": false
+        },
+        {
+          "label": "Inspection Purpose",
+          "hideLabel": false,
+          "key": "inspectionPurpose",
+          "type": "textarea",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "rows": 3,
+          "autoExpand": true,
+          "labelWidth": 30,
+          "labelMargin": 3
+        },
+        {
+          "label": "Inspector",
+          "hideLabel": false,
+          "key": "inspector",
+          "type": "account",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "widget": "choicesjs",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "multiple": false,
+          "data": {
+            "values": [
+              {
+                "label": "Alex Rivera",
+                "value": "alexRivera"
+              },
+              {
+                "label": "Jordan Lee",
+                "value": "jordanLee"
+              },
+              {
+                "label": "Morgan Patel",
+                "value": "morganPatel"
+              }
+            ]
+          }
+        },
+        {
+          "label": "Equipment",
+          "hideLabel": false,
+          "key": "equipment",
+          "type": "asset",
+          "input": true,
+          "tableView": true,
+          "reportable": false,
+          "validate": {
+            "required": true
+          },
+          "widget": "choicesjs",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "multiple": false,
+          "data": {
+            "values": [
+              {
+                "label": "Excavator EX-204",
+                "value": "excavatorEx204"
+              },
+              {
+                "label": "Forklift FL-118",
+                "value": "forkliftFl118"
+              },
+              {
+                "label": "Scissor Lift SL-77",
+                "value": "scissorLiftSl77"
+              }
+            ]
+          }
+        },
+        {
+          "label": "Equipment Status",
+          "hideLabel": false,
+          "key": "equipmentStatus",
+          "type": "select",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "widget": "html5",
+          "placeholder": "-- Select --",
+          "data": {
+            "values": [
+              {
+                "label": "Ready For Use",
+                "value": "readyforuse",
+                "flag": ""
+              },
+              {
+                "label": "Monitor During Shift",
+                "value": "monitorduringshift",
+                "flag": ""
+              },
+              {
+                "label": "Unsafe / Lock Out",
+                "value": "unsafelockout",
+                "flag": ""
+              }
+            ]
+          }
+        },
+        {
+          "label": "Unsafe Condition Notes",
+          "hideLabel": false,
+          "key": "unsafeConditionNotes",
+          "type": "textarea",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "rows": 1,
+          "autoExpand": true,
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "conditional": {
+            "show": true,
+            "when": "equipmentStatus",
+            "eq": "unsafeLockOut"
+          }
+        },
+        {
+          "label": "Inspection Start",
+          "hideLabel": false,
+          "key": "inspectionStart",
+          "type": "datetime",
+          "input": true,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "customType": "datetime",
+          "__dateTimeModeManual": false,
+          "__mode": "datetime",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "datePicker": {
+            "disableWeekends": false,
+            "disableWeekdays": false
+          },
+          "enableMinDateInput": false,
+          "enableMaxDateInput": false,
+          "widget": {
+            "type": "calendar",
+            "displayInTimezone": "viewer",
+            "locale": "en",
+            "useLocaleSettings": false,
+            "allowInput": true,
+            "mode": "single",
+            "enableTime": true,
+            "noCalendar": false,
+            "format": "yyyy-MM-dd hh:mm a",
+            "hourIncrement": 1,
+            "minuteIncrement": 1,
+            "time_24hr": false,
+            "minDate": null,
+            "disableWeekends": false,
+            "disableWeekdays": false,
+            "maxDate": null
+          }
+        },
+        {
+          "label": "Next Service Date",
+          "hideLabel": false,
+          "key": "nextServiceDate",
+          "type": "datetime",
+          "input": true,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "customType": "datetime",
+          "__dateTimeModeManual": false,
+          "__mode": "date",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "datePicker": {
+            "disableWeekends": false,
+            "disableWeekdays": false
+          },
+          "enableMinDateInput": false,
+          "enableMaxDateInput": false,
+          "widget": {
+            "type": "calendar",
+            "displayInTimezone": "viewer",
+            "locale": "en",
+            "useLocaleSettings": false,
+            "allowInput": true,
+            "mode": "single",
+            "enableTime": false,
+            "noCalendar": false,
+            "format": "yyyy-MM-dd",
+            "hourIncrement": 1,
+            "minuteIncrement": 1,
+            "time_24hr": false,
+            "minDate": null,
+            "disableWeekends": false,
+            "disableWeekdays": false,
+            "maxDate": null
+          }
+        },
+        {
+          "label": "Shift Start Window",
+          "hideLabel": false,
+          "key": "shiftStartWindow",
+          "type": "datetime",
+          "input": true,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "customType": "datetime",
+          "__dateTimeModeManual": false,
+          "__mode": "time",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "datePicker": {
+            "disableWeekends": false,
+            "disableWeekdays": false
+          },
+          "enableMinDateInput": false,
+          "enableMaxDateInput": false,
+          "widget": {
+            "type": "calendar",
+            "displayInTimezone": "viewer",
+            "locale": "en",
+            "useLocaleSettings": false,
+            "allowInput": true,
+            "mode": "single",
+            "enableTime": true,
+            "noCalendar": true,
+            "format": "hh:mm a",
+            "hourIncrement": 1,
+            "minuteIncrement": 1,
+            "time_24hr": false,
+            "minDate": null,
+            "disableWeekends": false,
+            "disableWeekdays": false,
+            "maxDate": null
+          }
+        },
+        {
+          "label": "Supervisor Callback",
+          "hideLabel": false,
+          "key": "supervisorCallback",
+          "type": "phoneNumber",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "defaultValue": "",
+          "prefix": "",
+          "disableAutoFormatting": false,
+          "enableSeparateDialCode": false
+        },
+        {
+          "label": "Inspection Location",
+          "hideLabel": false,
+          "key": "inspectionLocation",
+          "type": "address",
+          "input": true,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "components": [
+            {
+              "label": "Street",
+              "key": "street",
+              "type": "textfield",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              }
+            },
+            {
+              "label": "City",
+              "key": "city",
+              "type": "textfield",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              }
+            },
+            {
+              "label": "State",
+              "key": "state",
+              "type": "textfield",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              }
+            },
+            {
+              "label": "Zip Code",
+              "key": "zip",
+              "type": "number",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              }
+            }
+          ]
+        },
+        {
+          "label": "Inspection Checklist",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "hideLabel": true,
+          "tableView": true,
+          "reportable": true,
+          "questions": [
+            {
+              "label": "Brakes responsive",
+              "value": "brakesResponsive"
+            },
+            {
+              "label": "Lights and alarms working",
+              "value": "lightsAlarmsWorking"
+            },
+            {
+              "label": "Guarding secure",
+              "value": "guardingSecure"
+            },
+            {
+              "label": "Fluid levels acceptable",
+              "value": "fluidLevelsAcceptable"
+            }
+          ],
+          "values": [
+            {
+              "label": "Safe",
+              "value": "safe",
+              "flag": "success"
+            },
+            {
+              "label": "At Risk",
+              "value": "atRisk",
+              "flag": "danger"
+            },
+            {
+              "label": "N/A",
+              "value": "na"
+            }
+          ],
+          "validate": {
+            "required": true
+          },
+          "key": "inspectionChecklist",
+          "type": "survey",
+          "input": true
+        },
+        {
+          "label": "Critical Stop Work Checks",
+          "hideLabel": false,
+          "key": "criticalStopWorkChecks",
+          "type": "fieldset",
+          "input": false,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "legend": "Critical Stop Work Checks",
+          "components": [
+            {
+              "label": "Seatbelt Verified",
+              "hideLabel": false,
+              "key": "seatbeltVerified",
+              "type": "radio",
+              "input": true,
+              "tableView": false,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "inline": true,
+              "optionsLabelPosition": "right",
+              "values": [
+                {
+                  "label": "Yes",
+                  "value": "yes",
+                  "shortcut": "",
+                  "flag": "success"
+                },
+                {
+                  "label": "No",
+                  "value": "no",
+                  "shortcut": "",
+                  "flag": "danger"
+                },
+                {
+                  "label": "N/A",
+                  "value": "na",
+                  "shortcut": "",
+                  "flag": ""
+                }
+              ],
+              "builderComponentGroupManaged": true
+            },
+            {
+              "label": "Emergency Stop Verified",
+              "hideLabel": false,
+              "key": "emergencyStopVerified",
+              "type": "radio",
+              "input": true,
+              "tableView": false,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "inline": true,
+              "optionsLabelPosition": "right",
+              "values": [
+                {
+                  "label": "Yes",
+                  "value": "yes",
+                  "shortcut": "",
+                  "flag": "success"
+                },
+                {
+                  "label": "No",
+                  "value": "no",
+                  "shortcut": "",
+                  "flag": "danger"
+                },
+                {
+                  "label": "N/A",
+                  "value": "na",
+                  "shortcut": "",
+                  "flag": ""
+                }
+              ],
+              "builderComponentGroupManaged": true
+            }
+          ],
+          "customType": "componentGroup"
+        },
+        {
+          "label": "Equipment Photos",
+          "hideLabel": false,
+          "key": "equipmentPhotos",
+          "type": "file",
+          "input": true,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "storage": "base64",
+          "fileTypes": [
+            {
+              "label": "",
+              "value": "image/*"
+            }
+          ],
+          "defaultValue": [],
+          "multiple": true,
+          "image": true,
+          "imageSize": "400",
+          "webcam": false
+        },
+        {
+          "label": "Certificates And Permits",
+          "hideLabel": false,
+          "key": "certificatesAndPermits",
+          "type": "documents",
+          "input": true,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "labelWidth": 30,
+          "labelMargin": 3
+        },
+        {
+          "label": "Operating Hours",
+          "hideLabel": false,
+          "key": "operatingHours",
+          "type": "number",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "__numericStyleManual": false,
+          "defaultValue": 1284
+        },
+        {
+          "label": "Estimated Repair Cost",
+          "hideLabel": false,
+          "key": "estimatedRepairCost",
+          "type": "currency",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "__numericStyleManual": false,
+          "currency": "USD",
+          "delimiter": true,
+          "decimal": ".",
+          "thousands": ",",
+          "defaultValue": 320
+        },
+        {
+          "label": "Repair Total Incl. Tax",
+          "hideLabel": false,
+          "key": "repairTotalInclTax",
+          "type": "currency",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "__numericStyleManual": false,
+          "currency": "USD",
+          "delimiter": true,
+          "decimal": ".",
+          "thousands": ",",
+          "calculateValue": "value = (data.estimatedRepairCost || 0) * 1.13;"
+        },
+        {
+          "label": "Parts Required",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "reorder": false,
+          "addAnotherPosition": "bottom",
+          "layoutFixed": false,
+          "enableRowGroups": false,
+          "initEmpty": false,
+          "hideLabel": true,
+          "tableView": false,
+          "defaultValue": [
+            {}
+          ],
+          "key": "partsRequired",
+          "type": "datagrid",
+          "input": true,
+          "components": [
+            {
+              "label": "Grouping",
+              "labelWidth": 30,
+              "labelMargin": 3,
+              "hideLabel": true,
+              "key": "fieldset",
+              "type": "fieldset",
+              "input": false,
+              "tableView": false,
+              "components": [
+                {
+                  "label": "Part Description",
+                  "hideLabel": false,
+                  "key": "partDescription",
+                  "type": "textarea",
+                  "input": true,
+                  "tableView": true,
+                  "reportable": true,
+                  "validate": {
+                    "required": true
+                  },
+                  "rows": 1,
+                  "autoExpand": true,
+                  "labelWidth": 30,
+                  "labelMargin": 3
+                },
+                {
+                  "label": "Qty",
+                  "hideLabel": false,
+                  "key": "qty",
+                  "type": "number",
+                  "input": true,
+                  "tableView": true,
+                  "reportable": true,
+                  "validate": {
+                    "required": true
+                  },
+                  "__numericStyleManual": false,
+                  "defaultValue": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Repair Actions",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "customClass": "removeborder table-responsive",
+          "hideLabel": false,
+          "tableView": false,
+          "modal": true,
+          "rowDrafts": false,
+          "key": "repairActions",
+          "type": "editgrid",
+          "displayAsTable": false,
+          "input": true,
+          "components": [
+            {
+              "label": "Action Item",
+              "hideLabel": false,
+              "key": "actionItem",
+              "type": "textarea",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "rows": 1,
+              "autoExpand": true,
+              "labelWidth": 30,
+              "labelMargin": 3
+            },
+            {
+              "label": "Owner",
+              "hideLabel": false,
+              "key": "owner",
+              "type": "textarea",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "rows": 1,
+              "autoExpand": true,
+              "labelWidth": 30,
+              "labelMargin": 3
+            },
+            {
+              "label": "Due Date",
+              "hideLabel": false,
+              "key": "dueDate",
+              "type": "datetime",
+              "input": true,
+              "tableView": false,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "customType": "datetime",
+              "__dateTimeModeManual": false,
+              "__mode": "date",
+              "labelWidth": 30,
+              "labelMargin": 3,
+              "datePicker": {
+                "disableWeekends": false,
+                "disableWeekdays": false
+              },
+              "enableMinDateInput": false,
+              "enableMaxDateInput": false,
+              "widget": {
+                "type": "calendar",
+                "displayInTimezone": "viewer",
+                "locale": "en",
+                "useLocaleSettings": false,
+                "allowInput": true,
+                "mode": "single",
+                "enableTime": false,
+                "noCalendar": false,
+                "format": "yyyy-MM-dd",
+                "hourIncrement": 1,
+                "minuteIncrement": 1,
+                "time_24hr": false,
+                "minDate": null,
+                "disableWeekends": false,
+                "disableWeekdays": false,
+                "maxDate": null
+              }
+            },
+            {
+              "label": "Action Cost",
+              "hideLabel": false,
+              "key": "actionCost",
+              "type": "currency",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "__numericStyleManual": false,
+              "currency": "USD",
+              "delimiter": true,
+              "decimal": ".",
+              "thousands": ","
+            }
+          ],
+          "addAnother": "Add repair action",
+          "templates": {
+            "header": "",
+            "row": "{% var rowLayout = {\n  1:[4,3,2,3],\n}; %}\n\n{%\n  var gapX = 4;\n  var gapY = 4;\n  var radius = 4;\n  var bottomW = 2;\n  var counterW = 34;\n\n  // First-row header alignment control\n  var headerLineH = 16;     // px\n  var headerPadY  = 4;      // px\n  var headerPadX  = 6;      // px\n  var headerMinLines = 2;\n  var headerMinH = (headerLineH * headerMinLines) + (headerPadY * 2);\n\n  var cellPadY  = 1;\n  var cellPadX  = 2;\n  var valuePadY = 1;\n  var valuePadX = 2;\n\n  var rows = [];\n  var logical = 1;\n  var i = 0;\n\n  while (i < components.length) {\n    var layout = rowLayout[logical] || [1,1,1];\n    var cells = [];\n\n    for (var j = 0; j < layout.length && i < components.length; j++) {\n      cells.push({ comp: components[i], span: layout[j] });\n      i++;\n    }\n\n    if (!cells.length) break;\n    rows.push(cells);\n    logical++;\n  }\n\n  function sumSpans(cells){\n    var t = 0;\n    for (var k = 0; k < cells.length; k++) t += (cells[k].span || 1);\n    return t || 1;\n  }\n\n  function widthStyle(span, total, cellCount){\n    var gutters = Math.max(0, (cellCount || 0) - 1);\n    var fixedPx = counterW + gapX + (gutters * gapX);\n    var ratio = total ? (span / total) : 1;\n\n    if (ratio < 0) ratio = 0;\n    ratio = Math.round(ratio * 1000000) / 1000000;\n\n    return \"width:calc((100% - \" + fixedPx + \"px) * \" + ratio + \") !important;\";\n  }\n\n  var wrapStyle =\n    \"width:100% !important;margin:0 !important;padding:0 !important;\" +\n    \"text-align:left !important;\";\n\n  var tableStyle =\n    \"display:table !important;width:100% !important;table-layout:fixed !important;\" +\n    \"border:0 !important;margin:0 !important;padding:0 !important;\" +\n    \"background:transparent !important;text-align:left !important;\";\n\n  var rowStyle = \"display:table-row !important;\";\n\n  var cellBase =\n    \"display:table-cell !important;vertical-align:top !important;\" +\n    \"text-align:left !important;border:0 !important;margin:0 !important;\" +\n    \"background:transparent !important;box-sizing:border-box !important;\";\n\n  var gutterCell =\n    cellBase + \"width:\" + gapX + \"px !important;padding:0 !important;\";\n\n  var dataCell =\n    cellBase +\n    \"padding:\" + cellPadY + \"px \" + cellPadX + \"px !important;\" +\n    \"border-bottom:\" + bottomW + \"px solid #e8e8e8 !important;\" +\n    \"border-radius:\" + radius + \"px !important;\";\n\n  var headerChip =\n    \"display:block !important;width:100% !important;box-sizing:border-box !important;\" +\n    \"background:#f4f4f4 !important;border-radius:\" + radius + \"px !important;\" +\n    \"padding:\" + headerPadY + \"px \" + headerPadX + \"px !important;\" +\n    \"font-size:13px !important;font-weight:700 !important;letter-spacing:.1px !important;\" +\n    \"text-align:left !important;\" +\n    \"line-height:\" + headerLineH + \"px !important;\" +\n    \"min-height:\" + headerMinH + \"px !important;\" +\n    \"white-space:normal !important;\" +\n    \"overflow:hidden !important;\";\n\n  var valueStyle =\n    \"display:block !important;width:100% !important;box-sizing:border-box !important;\" +\n    \"font-size:13px !important;text-align:left !important;\" +\n    \"padding:\" + valuePadY + \"px \" + valuePadX + \"px !important;\" +\n    \"min-height:0 !important;\" +\n    \"overflow-wrap:anywhere !important;word-break:break-word !important;\";\n\n  var spacerStyle =\n    \"display:block !important;height:\" + gapY + \"px !important;\";\n\n  var btnBase =\n    \"display:inline-flex !important;align-items:center !important;justify-content:center !important;\" +\n    \"width:34px !important;height:34px !important;min-width:34px !important;min-height:34px !important;\" +\n    \"padding:0 !important;margin:0 0 0 8px !important;border-radius:6px !important;\" +\n    \"text-decoration:none !important;cursor:pointer !important;user-select:none !important;\" +\n    \"line-height:1 !important;box-sizing:border-box !important;\";\n\n  var btnLight  = btnBase + \"background:#f8f9fa !important;border:1px solid #ced4da !important;color:#495057 !important;\";\n  var btnDanger = btnBase + \"background:#dc3545 !important;border:1px solid #dc3545 !important;color:#fff !important;\";\n\n  var actionsWrap =\n    \"width:100% !important;text-align:right !important;margin-top:4px !important;padding-top:0 !important;\";\n%}\n\n{% rows.forEach(function(cells, rIdx){ var total = sumSpans(cells); %}\n\n  <div style=\"{{ wrapStyle }}\">\n    <div style=\"{{ tableStyle }}\">\n      <div style=\"{{ rowStyle }}\">\n\n        <div style=\"{{ gutterCell }}\"></div>\n\n        {% cells.forEach(function(cell, cIdx){ %}\n          <div style=\"{{ dataCell + widthStyle(cell.span, total, cells.length) }}\">\n\n            {% if (typeof rowIndex !== 'undefined' && rowIndex === 0) { %}\n              <div style=\"{{ headerChip }}\">{{ cell.comp.label }}</div>\n            {% } %}\n\n            <div style=\"{{ valueStyle }}\">{{ getView(cell.comp, row[cell.comp.key]) }}</div>\n          </div>\n\n          {% if (cIdx < cells.length - 1) { %}\n            <div style=\"{{ gutterCell }}\"></div>\n          {% } %}\n        {% }); %}\n\n      </div>\n    </div>\n  </div>\n\n  {% if (rIdx < rows.length - 1) { %}\n    <div style=\"{{ spacerStyle }}\"></div>\n  {% } %}\n\n{% }); %}\n\n{% if (!instance.options.readOnly && !instance.disabled) { %}\n  <div style=\"{{ actionsWrap }}\">\n    <button class=\"editRow\" style=\"{{ btnLight }}\" type=\"button\" tabindex=\"0\" aria-label=\"Edit row\">\n      <i class=\"{{ iconClass('edit') }}\" style=\"line-height:1 !important;pointer-events:none;\"></i>\n    </button>\n\n    {% if (instance.hasRemoveButtons && instance.hasRemoveButtons()) { %}\n      <button class=\"removeRow\" style=\"{{ btnDanger }}\" type=\"button\" tabindex=\"0\" aria-label=\"Delete row\">\n        <i class=\"{{ iconClass('trash') }}\" style=\"line-height:1 !important;pointer-events:none;\"></i>\n      </button>\n    {% } %}\n  </div>\n{% } %}\n"
+          }
+        }
+      ]
+    },
+    {
+      "label": "Job Hazard Analysis",
+      "hideLabel": false,
+      "key": "jobHazardAnalysis",
+      "type": "fieldset",
+      "input": false,
+      "tableView": false,
+      "reportable": true,
+      "validate": {
+        "required": true
+      },
+      "legend": "Job Hazard Analysis",
+      "components": [
+        {
+          "html": "<p>Review this JHA with the crew before work starts.</p><ul><li>Identify the highest-risk steps first.</li><li>Confirm permits, PPE, and rescue planning.</li><li>Use the knowledge check at the end to confirm crew understanding.</li></ul>",
+          "label": "Pre-Task Briefing",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "refreshOnChange": false,
+          "key": "preTaskBriefing",
+          "type": "content",
+          "customType": "disclaimer",
+          "input": false,
+          "tableView": false
+        },
+        {
+          "label": "Task Description",
+          "hideLabel": false,
+          "key": "taskDescription",
+          "type": "textarea",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "rows": 3,
+          "autoExpand": true,
+          "labelWidth": 30,
+          "labelMargin": 3
+        },
+        {
+          "label": "Crew Lead",
+          "hideLabel": false,
+          "key": "crewLead",
+          "type": "account",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "widget": "choicesjs",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "multiple": false,
+          "data": {
+            "values": [
+              {
+                "label": "Taylor Nguyen",
+                "value": "taylorNguyen"
+              },
+              {
+                "label": "Sam Brooks",
+                "value": "samBrooks"
+              }
+            ]
+          }
+        },
+        {
+          "label": "Work Area",
+          "hideLabel": false,
+          "key": "workArea",
+          "type": "address",
+          "input": true,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "components": [
+            {
+              "label": "Street",
+              "key": "street",
+              "type": "textfield",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              }
+            },
+            {
+              "label": "City",
+              "key": "city",
+              "type": "textfield",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              }
+            },
+            {
+              "label": "State",
+              "key": "state",
+              "type": "textfield",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              }
+            },
+            {
+              "label": "Zip Code",
+              "key": "zip",
+              "type": "number",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              }
+            }
+          ]
+        },
+        {
+          "label": "Permit Contact",
+          "hideLabel": false,
+          "key": "permitContact",
+          "type": "phoneNumber",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "defaultValue": "",
+          "prefix": "",
+          "disableAutoFormatting": false,
+          "enableSeparateDialCode": false
+        },
+        {
+          "label": "Mandatory PPE",
+          "hideLabel": false,
+          "key": "mandatoryPpe",
+          "type": "selectboxes",
+          "input": true,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "inputType": "checkbox",
+          "optionsLabelPosition": "right",
+          "modalEdit": true,
+          "values": [
+            {
+              "label": "Hard Hat",
+              "value": "hardhat",
+              "shortcut": "",
+              "flag": ""
+            },
+            {
+              "label": "Gloves",
+              "value": "gloves",
+              "shortcut": "",
+              "flag": ""
+            },
+            {
+              "label": "Harness",
+              "value": "harness",
+              "shortcut": "",
+              "flag": ""
+            },
+            {
+              "label": "Face Shield",
+              "value": "faceshield",
+              "shortcut": "",
+              "flag": ""
+            }
+          ]
+        },
+        {
+          "label": "Hot Work Permit Required?",
+          "hideLabel": false,
+          "key": "hotWorkPermitRequired",
+          "type": "radio",
+          "input": true,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "inline": true,
+          "optionsLabelPosition": "right",
+          "values": [
+            {
+              "label": "Yes",
+              "value": "yes",
+              "shortcut": "",
+              "flag": ""
+            },
+            {
+              "label": "No",
+              "value": "no",
+              "shortcut": "",
+              "flag": ""
+            }
+          ]
+        },
+        {
+          "label": "Hot Work Permit Number",
+          "hideLabel": false,
+          "key": "hotWorkPermitNumber",
+          "type": "textarea",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "rows": 1,
+          "autoExpand": true,
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "conditional": {
+            "show": true,
+            "when": "hotWorkPermitRequired",
+            "eq": "yes"
+          }
+        },
+        {
+          "label": "Critical Controls",
+          "hideLabel": false,
+          "key": "criticalControls",
+          "type": "fieldset",
+          "input": false,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "legend": "Critical Controls",
+          "components": [
+            {
+              "label": "Lockout / Tagout Confirmed",
+              "hideLabel": false,
+              "key": "lockoutTagoutConfirmed",
+              "type": "radio",
+              "input": true,
+              "tableView": false,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "inline": true,
+              "optionsLabelPosition": "right",
+              "values": [
+                {
+                  "label": "Yes",
+                  "value": "yes",
+                  "shortcut": "",
+                  "flag": "success"
+                },
+                {
+                  "label": "No",
+                  "value": "no",
+                  "shortcut": "",
+                  "flag": "danger"
+                },
+                {
+                  "label": "N/A",
+                  "value": "na",
+                  "shortcut": "",
+                  "flag": ""
+                }
+              ],
+              "builderComponentGroupManaged": true
+            },
+            {
+              "label": "Rescue Plan Confirmed",
+              "hideLabel": false,
+              "key": "rescuePlanConfirmed",
+              "type": "radio",
+              "input": true,
+              "tableView": false,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "inline": true,
+              "optionsLabelPosition": "right",
+              "values": [
+                {
+                  "label": "Yes",
+                  "value": "yes",
+                  "shortcut": "",
+                  "flag": "success"
+                },
+                {
+                  "label": "No",
+                  "value": "no",
+                  "shortcut": "",
+                  "flag": "danger"
+                },
+                {
+                  "label": "N/A",
+                  "value": "na",
+                  "shortcut": "",
+                  "flag": ""
+                }
+              ],
+              "builderComponentGroupManaged": true
+            }
+          ],
+          "customType": "componentGroup"
+        },
+        {
+          "label": "Job Steps And Hazards",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "customClass": "removeborder table-responsive",
+          "hideLabel": false,
+          "tableView": false,
+          "modal": true,
+          "rowDrafts": false,
+          "key": "jobStepsAndHazards",
+          "type": "editgrid",
+          "displayAsTable": false,
+          "input": true,
+          "components": [
+            {
+              "label": "Job Step",
+              "hideLabel": false,
+              "key": "jobStep",
+              "type": "textarea",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "rows": 1,
+              "autoExpand": true,
+              "labelWidth": 30,
+              "labelMargin": 3
+            },
+            {
+              "label": "Hazard",
+              "hideLabel": false,
+              "key": "hazard",
+              "type": "textarea",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "rows": 1,
+              "autoExpand": true,
+              "labelWidth": 30,
+              "labelMargin": 3
+            },
+            {
+              "label": "Risk Level",
+              "hideLabel": false,
+              "key": "riskLevel",
+              "type": "select",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "widget": "html5",
+              "placeholder": "-- Select --",
+              "data": {
+                "values": [
+                  {
+                    "label": "Low",
+                    "value": "low",
+                    "flag": ""
+                  },
+                  {
+                    "label": "Medium",
+                    "value": "medium",
+                    "flag": ""
+                  },
+                  {
+                    "label": "High",
+                    "value": "high",
+                    "flag": ""
+                  }
+                ]
+              }
+            },
+            {
+              "label": "Control Measure",
+              "hideLabel": false,
+              "key": "controlMeasure",
+              "type": "textarea",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "rows": 1,
+              "autoExpand": true,
+              "labelWidth": 30,
+              "labelMargin": 3
+            }
+          ],
+          "addAnother": "Add job step",
+          "templates": {
+            "header": "",
+            "row": "{% var rowLayout = {\n  1:[3,3,2,4],\n}; %}\n\n{%\n  var gapX = 4;\n  var gapY = 4;\n  var radius = 4;\n  var bottomW = 2;\n  var counterW = 34;\n\n  // First-row header alignment control\n  var headerLineH = 16;     // px\n  var headerPadY  = 4;      // px\n  var headerPadX  = 6;      // px\n  var headerMinLines = 2;\n  var headerMinH = (headerLineH * headerMinLines) + (headerPadY * 2);\n\n  var cellPadY  = 1;\n  var cellPadX  = 2;\n  var valuePadY = 1;\n  var valuePadX = 2;\n\n  var rows = [];\n  var logical = 1;\n  var i = 0;\n\n  while (i < components.length) {\n    var layout = rowLayout[logical] || [1,1,1];\n    var cells = [];\n\n    for (var j = 0; j < layout.length && i < components.length; j++) {\n      cells.push({ comp: components[i], span: layout[j] });\n      i++;\n    }\n\n    if (!cells.length) break;\n    rows.push(cells);\n    logical++;\n  }\n\n  function sumSpans(cells){\n    var t = 0;\n    for (var k = 0; k < cells.length; k++) t += (cells[k].span || 1);\n    return t || 1;\n  }\n\n  function widthStyle(span, total, cellCount){\n    var gutters = Math.max(0, (cellCount || 0) - 1);\n    var fixedPx = counterW + gapX + (gutters * gapX);\n    var ratio = total ? (span / total) : 1;\n\n    if (ratio < 0) ratio = 0;\n    ratio = Math.round(ratio * 1000000) / 1000000;\n\n    return \"width:calc((100% - \" + fixedPx + \"px) * \" + ratio + \") !important;\";\n  }\n\n  var wrapStyle =\n    \"width:100% !important;margin:0 !important;padding:0 !important;\" +\n    \"text-align:left !important;\";\n\n  var tableStyle =\n    \"display:table !important;width:100% !important;table-layout:fixed !important;\" +\n    \"border:0 !important;margin:0 !important;padding:0 !important;\" +\n    \"background:transparent !important;text-align:left !important;\";\n\n  var rowStyle = \"display:table-row !important;\";\n\n  var cellBase =\n    \"display:table-cell !important;vertical-align:top !important;\" +\n    \"text-align:left !important;border:0 !important;margin:0 !important;\" +\n    \"background:transparent !important;box-sizing:border-box !important;\";\n\n  var gutterCell =\n    cellBase + \"width:\" + gapX + \"px !important;padding:0 !important;\";\n\n  var dataCell =\n    cellBase +\n    \"padding:\" + cellPadY + \"px \" + cellPadX + \"px !important;\" +\n    \"border-bottom:\" + bottomW + \"px solid #e8e8e8 !important;\" +\n    \"border-radius:\" + radius + \"px !important;\";\n\n  var headerChip =\n    \"display:block !important;width:100% !important;box-sizing:border-box !important;\" +\n    \"background:#f4f4f4 !important;border-radius:\" + radius + \"px !important;\" +\n    \"padding:\" + headerPadY + \"px \" + headerPadX + \"px !important;\" +\n    \"font-size:13px !important;font-weight:700 !important;letter-spacing:.1px !important;\" +\n    \"text-align:left !important;\" +\n    \"line-height:\" + headerLineH + \"px !important;\" +\n    \"min-height:\" + headerMinH + \"px !important;\" +\n    \"white-space:normal !important;\" +\n    \"overflow:hidden !important;\";\n\n  var valueStyle =\n    \"display:block !important;width:100% !important;box-sizing:border-box !important;\" +\n    \"font-size:13px !important;text-align:left !important;\" +\n    \"padding:\" + valuePadY + \"px \" + valuePadX + \"px !important;\" +\n    \"min-height:0 !important;\" +\n    \"overflow-wrap:anywhere !important;word-break:break-word !important;\";\n\n  var spacerStyle =\n    \"display:block !important;height:\" + gapY + \"px !important;\";\n\n  var btnBase =\n    \"display:inline-flex !important;align-items:center !important;justify-content:center !important;\" +\n    \"width:34px !important;height:34px !important;min-width:34px !important;min-height:34px !important;\" +\n    \"padding:0 !important;margin:0 0 0 8px !important;border-radius:6px !important;\" +\n    \"text-decoration:none !important;cursor:pointer !important;user-select:none !important;\" +\n    \"line-height:1 !important;box-sizing:border-box !important;\";\n\n  var btnLight  = btnBase + \"background:#f8f9fa !important;border:1px solid #ced4da !important;color:#495057 !important;\";\n  var btnDanger = btnBase + \"background:#dc3545 !important;border:1px solid #dc3545 !important;color:#fff !important;\";\n\n  var actionsWrap =\n    \"width:100% !important;text-align:right !important;margin-top:4px !important;padding-top:0 !important;\";\n%}\n\n{% rows.forEach(function(cells, rIdx){ var total = sumSpans(cells); %}\n\n  <div style=\"{{ wrapStyle }}\">\n    <div style=\"{{ tableStyle }}\">\n      <div style=\"{{ rowStyle }}\">\n\n        <div style=\"{{ gutterCell }}\"></div>\n\n        {% cells.forEach(function(cell, cIdx){ %}\n          <div style=\"{{ dataCell + widthStyle(cell.span, total, cells.length) }}\">\n\n            {% if (typeof rowIndex !== 'undefined' && rowIndex === 0) { %}\n              <div style=\"{{ headerChip }}\">{{ cell.comp.label }}</div>\n            {% } %}\n\n            <div style=\"{{ valueStyle }}\">{{ getView(cell.comp, row[cell.comp.key]) }}</div>\n          </div>\n\n          {% if (cIdx < cells.length - 1) { %}\n            <div style=\"{{ gutterCell }}\"></div>\n          {% } %}\n        {% }); %}\n\n      </div>\n    </div>\n  </div>\n\n  {% if (rIdx < rows.length - 1) { %}\n    <div style=\"{{ spacerStyle }}\"></div>\n  {% } %}\n\n{% }); %}\n\n{% if (!instance.options.readOnly && !instance.disabled) { %}\n  <div style=\"{{ actionsWrap }}\">\n    <button class=\"editRow\" style=\"{{ btnLight }}\" type=\"button\" tabindex=\"0\" aria-label=\"Edit row\">\n      <i class=\"{{ iconClass('edit') }}\" style=\"line-height:1 !important;pointer-events:none;\"></i>\n    </button>\n\n    {% if (instance.hasRemoveButtons && instance.hasRemoveButtons()) { %}\n      <button class=\"removeRow\" style=\"{{ btnDanger }}\" type=\"button\" tabindex=\"0\" aria-label=\"Delete row\">\n        <i class=\"{{ iconClass('trash') }}\" style=\"line-height:1 !important;pointer-events:none;\"></i>\n      </button>\n    {% } %}\n  </div>\n{% } %}\n"
+          }
+        },
+        {
+          "label": "Permit Checks",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "customClass": "removeborder table-responsive",
+          "hideLabel": false,
+          "tableView": false,
+          "modal": true,
+          "rowDrafts": false,
+          "key": "permitChecks",
+          "type": "editgrid",
+          "displayAsTable": false,
+          "input": true,
+          "components": [
+            {
+              "label": "Permit / Review Item",
+              "hideLabel": false,
+              "key": "permitReviewItem",
+              "type": "textarea",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "rows": 1,
+              "autoExpand": true,
+              "labelWidth": 30,
+              "labelMargin": 3
+            },
+            {
+              "label": "Responsible Person",
+              "hideLabel": false,
+              "key": "responsiblePerson",
+              "type": "textarea",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "rows": 1,
+              "autoExpand": true,
+              "labelWidth": 30,
+              "labelMargin": 3
+            },
+            {
+              "label": "Verified",
+              "hideLabel": false,
+              "key": "verified",
+              "type": "radio",
+              "input": true,
+              "tableView": false,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "inline": true,
+              "optionsLabelPosition": "right",
+              "values": [
+                {
+                  "label": "Yes",
+                  "value": "yes",
+                  "shortcut": "",
+                  "flag": "success"
+                },
+                {
+                  "label": "No",
+                  "value": "no",
+                  "shortcut": "",
+                  "flag": "danger"
+                }
+              ]
+            }
+          ],
+          "addAnother": "Add permit check",
+          "templates": {
+            "header": "",
+            "row": "{% var rowLayout = {\n  1:[5,4,3],\n}; %}\n\n{%\n  var gapX = 4;\n  var gapY = 4;\n  var radius = 4;\n  var bottomW = 2;\n  var counterW = 34;\n\n  // First-row header alignment control\n  var headerLineH = 16;     // px\n  var headerPadY  = 4;      // px\n  var headerPadX  = 6;      // px\n  var headerMinLines = 2;\n  var headerMinH = (headerLineH * headerMinLines) + (headerPadY * 2);\n\n  var cellPadY  = 1;\n  var cellPadX  = 2;\n  var valuePadY = 1;\n  var valuePadX = 2;\n\n  var rows = [];\n  var logical = 1;\n  var i = 0;\n\n  while (i < components.length) {\n    var layout = rowLayout[logical] || [1,1,1];\n    var cells = [];\n\n    for (var j = 0; j < layout.length && i < components.length; j++) {\n      cells.push({ comp: components[i], span: layout[j] });\n      i++;\n    }\n\n    if (!cells.length) break;\n    rows.push(cells);\n    logical++;\n  }\n\n  function sumSpans(cells){\n    var t = 0;\n    for (var k = 0; k < cells.length; k++) t += (cells[k].span || 1);\n    return t || 1;\n  }\n\n  function widthStyle(span, total, cellCount){\n    var gutters = Math.max(0, (cellCount || 0) - 1);\n    var fixedPx = counterW + gapX + (gutters * gapX);\n    var ratio = total ? (span / total) : 1;\n\n    if (ratio < 0) ratio = 0;\n    ratio = Math.round(ratio * 1000000) / 1000000;\n\n    return \"width:calc((100% - \" + fixedPx + \"px) * \" + ratio + \") !important;\";\n  }\n\n  var wrapStyle =\n    \"width:100% !important;margin:0 !important;padding:0 !important;\" +\n    \"text-align:left !important;\";\n\n  var tableStyle =\n    \"display:table !important;width:100% !important;table-layout:fixed !important;\" +\n    \"border:0 !important;margin:0 !important;padding:0 !important;\" +\n    \"background:transparent !important;text-align:left !important;\";\n\n  var rowStyle = \"display:table-row !important;\";\n\n  var cellBase =\n    \"display:table-cell !important;vertical-align:top !important;\" +\n    \"text-align:left !important;border:0 !important;margin:0 !important;\" +\n    \"background:transparent !important;box-sizing:border-box !important;\";\n\n  var gutterCell =\n    cellBase + \"width:\" + gapX + \"px !important;padding:0 !important;\";\n\n  var dataCell =\n    cellBase +\n    \"padding:\" + cellPadY + \"px \" + cellPadX + \"px !important;\" +\n    \"border-bottom:\" + bottomW + \"px solid #e8e8e8 !important;\" +\n    \"border-radius:\" + radius + \"px !important;\";\n\n  var headerChip =\n    \"display:block !important;width:100% !important;box-sizing:border-box !important;\" +\n    \"background:#f4f4f4 !important;border-radius:\" + radius + \"px !important;\" +\n    \"padding:\" + headerPadY + \"px \" + headerPadX + \"px !important;\" +\n    \"font-size:13px !important;font-weight:700 !important;letter-spacing:.1px !important;\" +\n    \"text-align:left !important;\" +\n    \"line-height:\" + headerLineH + \"px !important;\" +\n    \"min-height:\" + headerMinH + \"px !important;\" +\n    \"white-space:normal !important;\" +\n    \"overflow:hidden !important;\";\n\n  var valueStyle =\n    \"display:block !important;width:100% !important;box-sizing:border-box !important;\" +\n    \"font-size:13px !important;text-align:left !important;\" +\n    \"padding:\" + valuePadY + \"px \" + valuePadX + \"px !important;\" +\n    \"min-height:0 !important;\" +\n    \"overflow-wrap:anywhere !important;word-break:break-word !important;\";\n\n  var spacerStyle =\n    \"display:block !important;height:\" + gapY + \"px !important;\";\n\n  var btnBase =\n    \"display:inline-flex !important;align-items:center !important;justify-content:center !important;\" +\n    \"width:34px !important;height:34px !important;min-width:34px !important;min-height:34px !important;\" +\n    \"padding:0 !important;margin:0 0 0 8px !important;border-radius:6px !important;\" +\n    \"text-decoration:none !important;cursor:pointer !important;user-select:none !important;\" +\n    \"line-height:1 !important;box-sizing:border-box !important;\";\n\n  var btnLight  = btnBase + \"background:#f8f9fa !important;border:1px solid #ced4da !important;color:#495057 !important;\";\n  var btnDanger = btnBase + \"background:#dc3545 !important;border:1px solid #dc3545 !important;color:#fff !important;\";\n\n  var actionsWrap =\n    \"width:100% !important;text-align:right !important;margin-top:4px !important;padding-top:0 !important;\";\n%}\n\n{% rows.forEach(function(cells, rIdx){ var total = sumSpans(cells); %}\n\n  <div style=\"{{ wrapStyle }}\">\n    <div style=\"{{ tableStyle }}\">\n      <div style=\"{{ rowStyle }}\">\n\n        <div style=\"{{ gutterCell }}\"></div>\n\n        {% cells.forEach(function(cell, cIdx){ %}\n          <div style=\"{{ dataCell + widthStyle(cell.span, total, cells.length) }}\">\n\n            {% if (typeof rowIndex !== 'undefined' && rowIndex === 0) { %}\n              <div style=\"{{ headerChip }}\">{{ cell.comp.label }}</div>\n            {% } %}\n\n            <div style=\"{{ valueStyle }}\">{{ getView(cell.comp, row[cell.comp.key]) }}</div>\n          </div>\n\n          {% if (cIdx < cells.length - 1) { %}\n            <div style=\"{{ gutterCell }}\"></div>\n          {% } %}\n        {% }); %}\n\n      </div>\n    </div>\n  </div>\n\n  {% if (rIdx < rows.length - 1) { %}\n    <div style=\"{{ spacerStyle }}\"></div>\n  {% } %}\n\n{% }); %}\n\n{% if (!instance.options.readOnly && !instance.disabled) { %}\n  <div style=\"{{ actionsWrap }}\">\n    <button class=\"editRow\" style=\"{{ btnLight }}\" type=\"button\" tabindex=\"0\" aria-label=\"Edit row\">\n      <i class=\"{{ iconClass('edit') }}\" style=\"line-height:1 !important;pointer-events:none;\"></i>\n    </button>\n\n    {% if (instance.hasRemoveButtons && instance.hasRemoveButtons()) { %}\n      <button class=\"removeRow\" style=\"{{ btnDanger }}\" type=\"button\" tabindex=\"0\" aria-label=\"Delete row\">\n        <i class=\"{{ iconClass('trash') }}\" style=\"line-height:1 !important;pointer-events:none;\"></i>\n      </button>\n    {% } %}\n  </div>\n{% } %}\n"
+          }
+        },
+        {
+          "label": "Crew Knowledge Check",
+          "hideLabel": true,
+          "legend": "",
+          "key": "crewKnowledgeCheck1",
+          "type": "fieldset",
+          "customType": "quiz",
+          "input": false,
+          "tableView": false,
+          "components": [
+            {
+              "label": "Quiz Questions",
+              "legend": "",
+              "labelWidth": 30,
+              "labelMargin": 3,
+              "key": "quizquestions",
+              "type": "fieldset",
+              "input": false,
+              "tableView": false,
+              "components": [
+                {
+                  "label": "When is a fire watch required?",
+                  "hideLabel": false,
+                  "key": "whenIsAFireWatchRequired",
+                  "type": "radio",
+                  "input": true,
+                  "tableView": false,
+                  "reportable": true,
+                  "validate": {
+                    "required": true
+                  },
+                  "inline": true,
+                  "optionsLabelPosition": "right",
+                  "values": [
+                    {
+                      "label": "Only after the shift",
+                      "value": "aftershiftonly",
+                      "shortcut": "",
+                      "flag": ""
+                    },
+                    {
+                      "label": "When hot work can create ignition sources",
+                      "value": "ignitionsources",
+                      "shortcut": "",
+                      "flag": ""
+                    },
+                    {
+                      "label": "Only outdoors",
+                      "value": "outdoorsonly",
+                      "shortcut": "",
+                      "flag": ""
+                    }
+                  ]
+                },
+                {
+                  "label": "Select fall-protection triggers",
+                  "hideLabel": false,
+                  "key": "selectFallProtectionTriggers",
+                  "type": "selectboxes",
+                  "input": true,
+                  "tableView": false,
+                  "reportable": true,
+                  "validate": {
+                    "required": true
+                  },
+                  "inputType": "checkbox",
+                  "optionsLabelPosition": "right",
+                  "modalEdit": true,
+                  "values": [
+                    {
+                      "label": "Open edge exposure",
+                      "value": "openedgeexposure",
+                      "shortcut": "",
+                      "flag": ""
+                    },
+                    {
+                      "label": "Unprotected ladder opening",
+                      "value": "ladderopening",
+                      "shortcut": "",
+                      "flag": ""
+                    },
+                    {
+                      "label": "Working from ground level only",
+                      "value": "groundlevelonly",
+                      "shortcut": "",
+                      "flag": ""
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "label": "Quiz Setup",
+              "legend": "",
+              "labelWidth": 30,
+              "labelMargin": 3,
+              "hidden": true,
+              "key": "quizsetup",
+              "type": "fieldset",
+              "input": false,
+              "tableView": false,
+              "builderHidden": true,
+              "components": [
+                {
+                  "label": "Quiz Summary",
+                  "labelWidth": 30,
+                  "labelMargin": 3,
+                  "hidden": true,
+                  "tableView": false,
+                  "reportable": false,
+                  "clearOnHide": false,
+                  "redrawOn": "data",
+                  "refreshOn": "data",
+                  "calculateValue": "/* ---------- helpers ---------- */\nvar A = Array.isArray;\n\nfunction schemaOf(source) {\n  if (!source || typeof source !== 'object') return null;\n  return source.component && typeof source.component === 'object'\n    ? source.component\n    : source;\n}\n\nfunction normalize(value) {\n  return String(value == null ? '' : value).trim().toLowerCase();\n}\n\nfunction tokensOf(raw) {\n  return String(raw == null ? '' : raw)\n    .split(',')\n    .map(function(part) { return part.trim(); })\n    .filter(Boolean);\n}\n\nfunction toSorted(value) {\n  return A(value)\n    ? value.slice().map(function(item) { return String(item); }).sort()\n    : value == null || value === ''\n      ? []\n      : [String(value)];\n}\n\nfunction optionEntries(component) {\n  var schema = schemaOf(component) || {};\n  return A(schema.data && schema.data.values)\n    ? schema.data.values\n    : A(schema.values)\n      ? schema.values\n      : [];\n}\n\nfunction matchText(component) {\n  var schema = schemaOf(component) || {};\n  return [schema.key, schema.label]\n    .map(function(part) { return String(part || ''); })\n    .join(' ')\n    .toLowerCase();\n}\n\nfunction flat(list, out) {\n  out = out || [];\n\n  (list || []).forEach(function(entry) {\n    var component = schemaOf(entry);\n    if (!component) return;\n\n    out.push(component);\n\n    if (A(component.components)) flat(component.components, out);\n    if (component.type === 'columns' && A(component.columns)) {\n      component.columns.forEach(function(column) {\n        flat((column && column.components) || [], out);\n      });\n    }\n    if (A(component.rows)) {\n      component.rows.forEach(function(row) {\n        if (A(row)) {\n          row.forEach(function(column) {\n            flat((column && column.components) || [], out);\n          });\n        } else if (row && row.components) {\n          flat(row.components, out);\n        }\n      });\n    }\n  });\n\n  return out;\n}\n\nfunction getQuizQuestionComponents(root) {\n  var rootSchema = schemaOf(root) || {};\n  var out = [];\n\n  function walk(list) {\n    (list || []).forEach(function(entry) {\n      var component = schemaOf(entry);\n      if (!component || component.builderHidden) return;\n\n      var keyText = String(component.key || '').toLowerCase();\n      if (component.customType === 'quiz') {\n        walk(component.components || []);\n        return;\n      }\n\n      if (\n        component.type === 'fieldset' &&\n        (/^quizsetup/.test(keyText) || /^results$/.test(keyText) || /^quizresults/.test(keyText))\n      ) {\n        return;\n      }\n\n      if (['select', 'radio', 'selectboxes'].indexOf(component.type) !== -1) {\n        out.push(component);\n        return;\n      }\n\n      if (A(component.components)) walk(component.components);\n      if (component.type === 'columns' && A(component.columns)) {\n        component.columns.forEach(function(column) {\n          walk((column && column.components) || []);\n        });\n      }\n    });\n  }\n\n  var questionsFieldset = (rootSchema.components || []).find(function(entry) {\n    var component = schemaOf(entry);\n    return component && component.type === 'fieldset' && /^quizquestions/i.test(component.key || '');\n  });\n\n  if (questionsFieldset) {\n    walk(questionsFieldset.components || []);\n  } else {\n    walk(rootSchema.components || []);\n  }\n\n  return out;\n}\n\nfunction ancestorSchemas() {\n  var out = [];\n  var seen = [];\n\n  function push(schema) {\n    if (!schema || seen.indexOf(schema) !== -1) return;\n    seen.push(schema);\n    out.push(schema);\n  }\n\n  push(currentSchema);\n\n  var cursor = instance && instance.parent;\n  while (cursor) {\n    push(schemaOf(cursor.component || cursor));\n    cursor = cursor.parent;\n  }\n\n  push(rootSchema);\n  return out;\n}\n\nfunction matchesFieldsetKey(component, baseName, suffix) {\n  var schema = schemaOf(component) || {};\n  var key = String(schema.key || '').trim().toLowerCase();\n  return key === (String(baseName || '') + String(suffix == null ? '' : suffix)).toLowerCase();\n}\n\nfunction getQuizScopeSuffix() {\n  var schemas = ancestorSchemas();\n\n  for (var index = 0; index < schemas.length; index += 1) {\n    var key = String((schemas[index] && schemas[index].key) || '').trim();\n    var match = key.match(/^(quizquestions|quizsetup|quizresults|results|quizsummary|result|incorrectanswers|passmark|answerkey)(d*)$/i);\n    if (match) return match[2];\n  }\n\n  return null;\n}\n\nfunction getDirectChildFieldset(root, names, suffix) {\n  var children = (schemaOf(root) || {}).components || [];\n\n  for (var index = 0; index < children.length; index += 1) {\n    var child = schemaOf(children[index]);\n    if (!child || child.type !== 'fieldset') continue;\n\n    for (var nameIndex = 0; nameIndex < (names || []).length; nameIndex += 1) {\n      if (matchesFieldsetKey(child, names[nameIndex], suffix)) {\n        return child;\n      }\n    }\n  }\n\n  return null;\n}\n\nfunction isQuizScope(scope) {\n  var schema = schemaOf(scope) || {};\n  var components = flat(schema.components || []);\n  var questionComponents = getQuizQuestionComponents(schema);\n  var hasAnswerGrid = components.some(function(entry) {\n    return entry && entry.type === 'datagrid' && /answerkey/i.test(matchText(entry));\n  });\n  var hasPassMark = components.some(function(entry) {\n    return entry && entry.type === 'number' && /passmark/i.test(matchText(entry));\n  });\n  var hasResults = components.some(function(entry) {\n    return entry && entry.type === 'textarea' && /(^result$|quizresult|incorrectanswers)/i.test(matchText(entry));\n  });\n\n  return questionComponents.length > 0 && hasAnswerGrid && (hasPassMark || hasResults);\n}\n\nfunction createSiblingQuizScope(root, suffix) {\n  if (suffix == null) return null;\n\n  var questionSection = getDirectChildFieldset(root, ['quizquestions'], suffix);\n  var setupSection = getDirectChildFieldset(root, ['quizsetup'], suffix);\n  var resultsSection = getDirectChildFieldset(root, ['quizresults', 'results'], suffix);\n  var components = [questionSection, setupSection, resultsSection].filter(Boolean);\n\n  if (!components.length) return null;\n\n  var scope = { components: components };\n  return isQuizScope(scope) ? scope : null;\n}\n\nfunction findQuizRoot() {\n  var ancestors = ancestorSchemas();\n\n  for (var index = 0; index < ancestors.length; index += 1) {\n    if (ancestors[index] && ancestors[index].customType === 'quiz') {\n      return ancestors[index];\n    }\n  }\n\n  for (var ancestorIndex = 0; ancestorIndex < ancestors.length; ancestorIndex += 1) {\n    var candidate = ancestors[ancestorIndex];\n    if (!candidate || candidate === rootSchema) continue;\n    if (isQuizScope(candidate)) return candidate;\n  }\n\n  var siblingScope = createSiblingQuizScope(rootSchema, getQuizScopeSuffix());\n  if (siblingScope) return siblingScope;\n\n  return isQuizScope(rootSchema) ? rootSchema : rootSchema;\n}\n\nfunction firstFilled(row, keys) {\n  var values = keys || [];\n\n  for (var index = 0; index < values.length; index += 1) {\n    var key = values[index];\n    if (!key) continue;\n\n    var cell = row && row[key];\n    if (cell !== undefined && cell !== null && String(cell).trim() !== '') {\n      return String(cell).trim();\n    }\n  }\n\n  return '';\n}\n\nfunction normalizeExpected(component, rawAnswer) {\n  var options = optionEntries(component);\n  var valueMap = {};\n\n  options.forEach(function(option) {\n    var value = String(option && option.value != null ? option.value : '').trim();\n    var label = String(option && option.label != null ? option.label : '').trim();\n    if (value) valueMap[normalize(value)] = value;\n    if (label) valueMap[normalize(label)] = value || label;\n  });\n\n  return tokensOf(rawAnswer)\n    .map(function(token) { return valueMap[normalize(token)] || token; })\n    .sort();\n}\n\nvar currentSchema = schemaOf(component);\nvar parentSchema = schemaOf(instance && instance.parent);\nvar grandparentSchema = schemaOf(instance && instance.parent && instance.parent.parent);\nvar rootSchema = schemaOf(form) || schemaOf(instance && instance.root) || {};\nvar quizRoot = findQuizRoot();\nvar components = flat(quizRoot.components || []);\nvar answerGrid = components.find(function(entry) {\n  return entry && entry.type === 'datagrid' && /answerkey/i.test(matchText(entry));\n});\nvar passMarkField = components.find(function(entry) {\n  return entry && entry.type === 'number' && /passmark/i.test(matchText(entry));\n});\nvar answerRows = answerGrid && A(data && data[answerGrid.key]) && data[answerGrid.key].length\n  ? data[answerGrid.key]\n  : answerGrid && A(answerGrid.defaultValue)\n    ? answerGrid.defaultValue\n    : [];\nvar answerGridColumns = answerGrid && A(answerGrid.components) ? answerGrid.components : [];\nvar questionComponentKeyField = answerGridColumns.find(function(column) {\n  return /(questioncomponentkey|componentkey)/i.test(matchText(column));\n});\nvar questionLabelField = answerGridColumns.find(function(column) {\n  return column !== questionComponentKeyField && /(questionlabel|question)/i.test(matchText(column));\n});\nvar answerValueField = answerGridColumns.find(function(column) {\n  return /(answervalue|correctvalue|answer)/i.test(matchText(column));\n});\nvar questionComponents = getQuizQuestionComponents(quizRoot);\nvar expectedByKey = {};\n\nanswerRows.forEach(function(row, index) {\n  var explicitKey = firstFilled(row, [\n    questionComponentKeyField && questionComponentKeyField.key,\n    'questioncomponentkey',\n    'questionComponentKey',\n    'questionkey',\n    'quizquestionkey',\n    'componentkey'\n  ]);\n\n  var matchedComponent = explicitKey\n    ? questionComponents.find(function(candidate) {\n        return String((candidate && candidate.key) || '') === explicitKey;\n      })\n    : null;\n\n  var label = firstFilled(row, [\n    questionLabelField && questionLabelField.key,\n    'questionlabel',\n    'questionLabel',\n    'question',\n    'quizquestion'\n  ]);\n\n  if (!matchedComponent && label) {\n    var labelMatches = questionComponents.filter(function(candidate) {\n      return normalize(candidate && candidate.label) === normalize(label);\n    });\n\n    if (labelMatches.length === 1) {\n      matchedComponent = labelMatches[0];\n    } else if (labelMatches.length > 1 && questionComponents[index]) {\n      matchedComponent = questionComponents[index];\n    }\n  }\n\n  if (!matchedComponent && questionComponents[index]) {\n    matchedComponent = questionComponents[index];\n  }\n\n  if (!matchedComponent || !matchedComponent.key) return;\n\n  var rawAnswer = firstFilled(row, [\n    answerValueField && answerValueField.key,\n    'answervalue',\n    'correctvalue',\n    'correctvalues',\n    'correctValueS',\n    'quizanswer',\n    'answer'\n  ]);\n\n  expectedByKey[matchedComponent.key] = normalizeExpected(matchedComponent, rawAnswer);\n});\n\nvar correct = 0;\nvar bad = [];\n\nquestionComponents.forEach(function(componentSchema) {\n  if (!componentSchema || !componentSchema.key) return;\n\n  var right = expectedByKey[componentSchema.key];\n  if (!right) return;\n\n  var rawValue = data ? data[componentSchema.key] : undefined;\n  var user = componentSchema.type === 'selectboxes'\n    ? Object.keys(rawValue || {}).filter(function(key) { return rawValue[key]; }).sort()\n    : toSorted(rawValue);\n\n  if (!user.length) return;\n\n  var matches =\n    user.length === right.length &&\n    user.every(function(item, index) {\n      return normalize(item) === normalize(right[index]);\n    });\n\n  if (matches) {\n    correct += 1;\n    return;\n  }\n\n  bad.push(String(componentSchema.label || componentSchema.key || '').trim());\n});\n\nvar total = Object.keys(expectedByKey).length || questionComponents.length || 1;\nvar needed = Math.min(\n  total,\n  Math.max(1, Number(data && passMarkField && data[passMarkField.key]) || Number(passMarkField && passMarkField.defaultValue) || 1)\n);\nvar quizState = {\n  bad: bad,\n  score: String(correct) + '/' + String(total),\n  result: correct >= needed ? 'Pass' : 'Try again'\n};\n\nquizState.resultText = quizState.result + ' - ' + quizState.score;\nvalue = quizState.score;",
+                  "key": "quizsummary",
+                  "type": "textfield",
+                  "input": true
+                },
+                {
+                  "label": "Pass Mark",
+                  "labelWidth": 30,
+                  "labelMargin": 3,
+                  "description": "Enter the minimum number of correct answers required to pass.",
+                  "mask": false,
+                  "tableView": false,
+                  "reportable": false,
+                  "defaultValue": 2,
+                  "delimiter": false,
+                  "requireDecimal": false,
+                  "inputFormat": "plain",
+                  "truncateMultipleSpaces": false,
+                  "clearOnHide": false,
+                  "key": "passmark",
+                  "type": "number",
+                  "input": true,
+                  "persistent": true
+                },
+                {
+                  "label": "Answer Key",
+                  "labelWidth": 30,
+                  "labelMargin": 3,
+                  "description": "Choose the correct answer values for each quiz question.",
+                  "reorder": false,
+                  "addAnotherPosition": "bottom",
+                  "layoutFixed": false,
+                  "enableRowGroups": false,
+                  "initEmpty": false,
+                  "tableView": false,
+                  "defaultValue": [
+                    {
+                      "questionLabel": "When is a fire watch required?",
+                      "questionComponentKey": "whenIsAFireWatchRequired",
+                      "correctValueS": "ignitionSources"
+                    },
+                    {
+                      "questionLabel": "Select fall-protection triggers",
+                      "questionComponentKey": "selectFallProtectionTriggers",
+                      "correctValueS": "openEdgeExposure,ladderOpening"
+                    }
+                  ],
+                  "clearOnHide": false,
+                  "key": "answerkey",
+                  "type": "datagrid",
+                  "input": true,
+                  "components": [
+                    {
+                      "label": "Question Label",
+                      "labelWidth": 30,
+                      "labelMargin": 3,
+                      "tableView": true,
+                      "reportable": true,
+                      "key": "questionLabel",
+                      "type": "textfield",
+                      "input": true
+                    },
+                    {
+                      "label": "Question Component Key",
+                      "labelWidth": 30,
+                      "labelMargin": 3,
+                      "hidden": true,
+                      "tableView": false,
+                      "reportable": false,
+                      "key": "questionComponentKey",
+                      "type": "textfield",
+                      "input": true
+                    },
+                    {
+                      "label": "Correct Value(s)",
+                      "labelWidth": 30,
+                      "labelMargin": 3,
+                      "tableView": true,
+                      "reportable": true,
+                      "key": "correctValueS",
+                      "type": "textfield",
+                      "input": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "label": "Results",
+              "legend": "",
+              "labelWidth": 30,
+              "labelMargin": 3,
+              "key": "quizresults",
+              "type": "fieldset",
+              "input": false,
+              "tableView": false,
+              "components": [
+                {
+                  "label": "Result",
+                  "labelWidth": 30,
+                  "labelMargin": 3,
+                  "rows": 1,
+                  "autoExpand": true,
+                  "disabled": true,
+                  "tableView": true,
+                  "reportable": true,
+                  "redrawOn": "data",
+                  "refreshOn": "data",
+                  "calculateValue": "/* ---------- helpers ---------- */\nvar A = Array.isArray;\n\nfunction schemaOf(source) {\n  if (!source || typeof source !== 'object') return null;\n  return source.component && typeof source.component === 'object'\n    ? source.component\n    : source;\n}\n\nfunction normalize(value) {\n  return String(value == null ? '' : value).trim().toLowerCase();\n}\n\nfunction tokensOf(raw) {\n  return String(raw == null ? '' : raw)\n    .split(',')\n    .map(function(part) { return part.trim(); })\n    .filter(Boolean);\n}\n\nfunction toSorted(value) {\n  return A(value)\n    ? value.slice().map(function(item) { return String(item); }).sort()\n    : value == null || value === ''\n      ? []\n      : [String(value)];\n}\n\nfunction optionEntries(component) {\n  var schema = schemaOf(component) || {};\n  return A(schema.data && schema.data.values)\n    ? schema.data.values\n    : A(schema.values)\n      ? schema.values\n      : [];\n}\n\nfunction matchText(component) {\n  var schema = schemaOf(component) || {};\n  return [schema.key, schema.label]\n    .map(function(part) { return String(part || ''); })\n    .join(' ')\n    .toLowerCase();\n}\n\nfunction flat(list, out) {\n  out = out || [];\n\n  (list || []).forEach(function(entry) {\n    var component = schemaOf(entry);\n    if (!component) return;\n\n    out.push(component);\n\n    if (A(component.components)) flat(component.components, out);\n    if (component.type === 'columns' && A(component.columns)) {\n      component.columns.forEach(function(column) {\n        flat((column && column.components) || [], out);\n      });\n    }\n    if (A(component.rows)) {\n      component.rows.forEach(function(row) {\n        if (A(row)) {\n          row.forEach(function(column) {\n            flat((column && column.components) || [], out);\n          });\n        } else if (row && row.components) {\n          flat(row.components, out);\n        }\n      });\n    }\n  });\n\n  return out;\n}\n\nfunction getQuizQuestionComponents(root) {\n  var rootSchema = schemaOf(root) || {};\n  var out = [];\n\n  function walk(list) {\n    (list || []).forEach(function(entry) {\n      var component = schemaOf(entry);\n      if (!component || component.builderHidden) return;\n\n      var keyText = String(component.key || '').toLowerCase();\n      if (component.customType === 'quiz') {\n        walk(component.components || []);\n        return;\n      }\n\n      if (\n        component.type === 'fieldset' &&\n        (/^quizsetup/.test(keyText) || /^results$/.test(keyText) || /^quizresults/.test(keyText))\n      ) {\n        return;\n      }\n\n      if (['select', 'radio', 'selectboxes'].indexOf(component.type) !== -1) {\n        out.push(component);\n        return;\n      }\n\n      if (A(component.components)) walk(component.components);\n      if (component.type === 'columns' && A(component.columns)) {\n        component.columns.forEach(function(column) {\n          walk((column && column.components) || []);\n        });\n      }\n    });\n  }\n\n  var questionsFieldset = (rootSchema.components || []).find(function(entry) {\n    var component = schemaOf(entry);\n    return component && component.type === 'fieldset' && /^quizquestions/i.test(component.key || '');\n  });\n\n  if (questionsFieldset) {\n    walk(questionsFieldset.components || []);\n  } else {\n    walk(rootSchema.components || []);\n  }\n\n  return out;\n}\n\nfunction ancestorSchemas() {\n  var out = [];\n  var seen = [];\n\n  function push(schema) {\n    if (!schema || seen.indexOf(schema) !== -1) return;\n    seen.push(schema);\n    out.push(schema);\n  }\n\n  push(currentSchema);\n\n  var cursor = instance && instance.parent;\n  while (cursor) {\n    push(schemaOf(cursor.component || cursor));\n    cursor = cursor.parent;\n  }\n\n  push(rootSchema);\n  return out;\n}\n\nfunction matchesFieldsetKey(component, baseName, suffix) {\n  var schema = schemaOf(component) || {};\n  var key = String(schema.key || '').trim().toLowerCase();\n  return key === (String(baseName || '') + String(suffix == null ? '' : suffix)).toLowerCase();\n}\n\nfunction getQuizScopeSuffix() {\n  var schemas = ancestorSchemas();\n\n  for (var index = 0; index < schemas.length; index += 1) {\n    var key = String((schemas[index] && schemas[index].key) || '').trim();\n    var match = key.match(/^(quizquestions|quizsetup|quizresults|results|quizsummary|result|incorrectanswers|passmark|answerkey)(d*)$/i);\n    if (match) return match[2];\n  }\n\n  return null;\n}\n\nfunction getDirectChildFieldset(root, names, suffix) {\n  var children = (schemaOf(root) || {}).components || [];\n\n  for (var index = 0; index < children.length; index += 1) {\n    var child = schemaOf(children[index]);\n    if (!child || child.type !== 'fieldset') continue;\n\n    for (var nameIndex = 0; nameIndex < (names || []).length; nameIndex += 1) {\n      if (matchesFieldsetKey(child, names[nameIndex], suffix)) {\n        return child;\n      }\n    }\n  }\n\n  return null;\n}\n\nfunction isQuizScope(scope) {\n  var schema = schemaOf(scope) || {};\n  var components = flat(schema.components || []);\n  var questionComponents = getQuizQuestionComponents(schema);\n  var hasAnswerGrid = components.some(function(entry) {\n    return entry && entry.type === 'datagrid' && /answerkey/i.test(matchText(entry));\n  });\n  var hasPassMark = components.some(function(entry) {\n    return entry && entry.type === 'number' && /passmark/i.test(matchText(entry));\n  });\n  var hasResults = components.some(function(entry) {\n    return entry && entry.type === 'textarea' && /(^result$|quizresult|incorrectanswers)/i.test(matchText(entry));\n  });\n\n  return questionComponents.length > 0 && hasAnswerGrid && (hasPassMark || hasResults);\n}\n\nfunction createSiblingQuizScope(root, suffix) {\n  if (suffix == null) return null;\n\n  var questionSection = getDirectChildFieldset(root, ['quizquestions'], suffix);\n  var setupSection = getDirectChildFieldset(root, ['quizsetup'], suffix);\n  var resultsSection = getDirectChildFieldset(root, ['quizresults', 'results'], suffix);\n  var components = [questionSection, setupSection, resultsSection].filter(Boolean);\n\n  if (!components.length) return null;\n\n  var scope = { components: components };\n  return isQuizScope(scope) ? scope : null;\n}\n\nfunction findQuizRoot() {\n  var ancestors = ancestorSchemas();\n\n  for (var index = 0; index < ancestors.length; index += 1) {\n    if (ancestors[index] && ancestors[index].customType === 'quiz') {\n      return ancestors[index];\n    }\n  }\n\n  for (var ancestorIndex = 0; ancestorIndex < ancestors.length; ancestorIndex += 1) {\n    var candidate = ancestors[ancestorIndex];\n    if (!candidate || candidate === rootSchema) continue;\n    if (isQuizScope(candidate)) return candidate;\n  }\n\n  var siblingScope = createSiblingQuizScope(rootSchema, getQuizScopeSuffix());\n  if (siblingScope) return siblingScope;\n\n  return isQuizScope(rootSchema) ? rootSchema : rootSchema;\n}\n\nfunction firstFilled(row, keys) {\n  var values = keys || [];\n\n  for (var index = 0; index < values.length; index += 1) {\n    var key = values[index];\n    if (!key) continue;\n\n    var cell = row && row[key];\n    if (cell !== undefined && cell !== null && String(cell).trim() !== '') {\n      return String(cell).trim();\n    }\n  }\n\n  return '';\n}\n\nfunction normalizeExpected(component, rawAnswer) {\n  var options = optionEntries(component);\n  var valueMap = {};\n\n  options.forEach(function(option) {\n    var value = String(option && option.value != null ? option.value : '').trim();\n    var label = String(option && option.label != null ? option.label : '').trim();\n    if (value) valueMap[normalize(value)] = value;\n    if (label) valueMap[normalize(label)] = value || label;\n  });\n\n  return tokensOf(rawAnswer)\n    .map(function(token) { return valueMap[normalize(token)] || token; })\n    .sort();\n}\n\nvar currentSchema = schemaOf(component);\nvar parentSchema = schemaOf(instance && instance.parent);\nvar grandparentSchema = schemaOf(instance && instance.parent && instance.parent.parent);\nvar rootSchema = schemaOf(form) || schemaOf(instance && instance.root) || {};\nvar quizRoot = findQuizRoot();\nvar components = flat(quizRoot.components || []);\nvar answerGrid = components.find(function(entry) {\n  return entry && entry.type === 'datagrid' && /answerkey/i.test(matchText(entry));\n});\nvar passMarkField = components.find(function(entry) {\n  return entry && entry.type === 'number' && /passmark/i.test(matchText(entry));\n});\nvar answerRows = answerGrid && A(data && data[answerGrid.key]) && data[answerGrid.key].length\n  ? data[answerGrid.key]\n  : answerGrid && A(answerGrid.defaultValue)\n    ? answerGrid.defaultValue\n    : [];\nvar answerGridColumns = answerGrid && A(answerGrid.components) ? answerGrid.components : [];\nvar questionComponentKeyField = answerGridColumns.find(function(column) {\n  return /(questioncomponentkey|componentkey)/i.test(matchText(column));\n});\nvar questionLabelField = answerGridColumns.find(function(column) {\n  return column !== questionComponentKeyField && /(questionlabel|question)/i.test(matchText(column));\n});\nvar answerValueField = answerGridColumns.find(function(column) {\n  return /(answervalue|correctvalue|answer)/i.test(matchText(column));\n});\nvar questionComponents = getQuizQuestionComponents(quizRoot);\nvar expectedByKey = {};\n\nanswerRows.forEach(function(row, index) {\n  var explicitKey = firstFilled(row, [\n    questionComponentKeyField && questionComponentKeyField.key,\n    'questioncomponentkey',\n    'questionComponentKey',\n    'questionkey',\n    'quizquestionkey',\n    'componentkey'\n  ]);\n\n  var matchedComponent = explicitKey\n    ? questionComponents.find(function(candidate) {\n        return String((candidate && candidate.key) || '') === explicitKey;\n      })\n    : null;\n\n  var label = firstFilled(row, [\n    questionLabelField && questionLabelField.key,\n    'questionlabel',\n    'questionLabel',\n    'question',\n    'quizquestion'\n  ]);\n\n  if (!matchedComponent && label) {\n    var labelMatches = questionComponents.filter(function(candidate) {\n      return normalize(candidate && candidate.label) === normalize(label);\n    });\n\n    if (labelMatches.length === 1) {\n      matchedComponent = labelMatches[0];\n    } else if (labelMatches.length > 1 && questionComponents[index]) {\n      matchedComponent = questionComponents[index];\n    }\n  }\n\n  if (!matchedComponent && questionComponents[index]) {\n    matchedComponent = questionComponents[index];\n  }\n\n  if (!matchedComponent || !matchedComponent.key) return;\n\n  var rawAnswer = firstFilled(row, [\n    answerValueField && answerValueField.key,\n    'answervalue',\n    'correctvalue',\n    'correctvalues',\n    'correctValueS',\n    'quizanswer',\n    'answer'\n  ]);\n\n  expectedByKey[matchedComponent.key] = normalizeExpected(matchedComponent, rawAnswer);\n});\n\nvar correct = 0;\nvar bad = [];\n\nquestionComponents.forEach(function(componentSchema) {\n  if (!componentSchema || !componentSchema.key) return;\n\n  var right = expectedByKey[componentSchema.key];\n  if (!right) return;\n\n  var rawValue = data ? data[componentSchema.key] : undefined;\n  var user = componentSchema.type === 'selectboxes'\n    ? Object.keys(rawValue || {}).filter(function(key) { return rawValue[key]; }).sort()\n    : toSorted(rawValue);\n\n  if (!user.length) return;\n\n  var matches =\n    user.length === right.length &&\n    user.every(function(item, index) {\n      return normalize(item) === normalize(right[index]);\n    });\n\n  if (matches) {\n    correct += 1;\n    return;\n  }\n\n  bad.push(String(componentSchema.label || componentSchema.key || '').trim());\n});\n\nvar total = Object.keys(expectedByKey).length || questionComponents.length || 1;\nvar needed = Math.min(\n  total,\n  Math.max(1, Number(data && passMarkField && data[passMarkField.key]) || Number(passMarkField && passMarkField.defaultValue) || 1)\n);\nvar quizState = {\n  bad: bad,\n  score: String(correct) + '/' + String(total),\n  result: correct >= needed ? 'Pass' : 'Try again'\n};\n\nquizState.resultText = quizState.result + ' - ' + quizState.score;\nvalue = quizState.resultText || '';",
+                  "key": "quizresult",
+                  "type": "textarea",
+                  "input": true
+                },
+                {
+                  "label": "Incorrect Answers",
+                  "labelWidth": 30,
+                  "labelMargin": 3,
+                  "editor": "ckeditor",
+                  "tableView": true,
+                  "reportable": false,
+                  "redrawOn": "data",
+                  "refreshOn": "data",
+                  "calculateValue": "/* ---------- helpers ---------- */\nvar A = Array.isArray;\n\nfunction schemaOf(source) {\n  if (!source || typeof source !== 'object') return null;\n  return source.component && typeof source.component === 'object'\n    ? source.component\n    : source;\n}\n\nfunction normalize(value) {\n  return String(value == null ? '' : value).trim().toLowerCase();\n}\n\nfunction tokensOf(raw) {\n  return String(raw == null ? '' : raw)\n    .split(',')\n    .map(function(part) { return part.trim(); })\n    .filter(Boolean);\n}\n\nfunction toSorted(value) {\n  return A(value)\n    ? value.slice().map(function(item) { return String(item); }).sort()\n    : value == null || value === ''\n      ? []\n      : [String(value)];\n}\n\nfunction optionEntries(component) {\n  var schema = schemaOf(component) || {};\n  return A(schema.data && schema.data.values)\n    ? schema.data.values\n    : A(schema.values)\n      ? schema.values\n      : [];\n}\n\nfunction matchText(component) {\n  var schema = schemaOf(component) || {};\n  return [schema.key, schema.label]\n    .map(function(part) { return String(part || ''); })\n    .join(' ')\n    .toLowerCase();\n}\n\nfunction flat(list, out) {\n  out = out || [];\n\n  (list || []).forEach(function(entry) {\n    var component = schemaOf(entry);\n    if (!component) return;\n\n    out.push(component);\n\n    if (A(component.components)) flat(component.components, out);\n    if (component.type === 'columns' && A(component.columns)) {\n      component.columns.forEach(function(column) {\n        flat((column && column.components) || [], out);\n      });\n    }\n    if (A(component.rows)) {\n      component.rows.forEach(function(row) {\n        if (A(row)) {\n          row.forEach(function(column) {\n            flat((column && column.components) || [], out);\n          });\n        } else if (row && row.components) {\n          flat(row.components, out);\n        }\n      });\n    }\n  });\n\n  return out;\n}\n\nfunction getQuizQuestionComponents(root) {\n  var rootSchema = schemaOf(root) || {};\n  var out = [];\n\n  function walk(list) {\n    (list || []).forEach(function(entry) {\n      var component = schemaOf(entry);\n      if (!component || component.builderHidden) return;\n\n      var keyText = String(component.key || '').toLowerCase();\n      if (component.customType === 'quiz') {\n        walk(component.components || []);\n        return;\n      }\n\n      if (\n        component.type === 'fieldset' &&\n        (/^quizsetup/.test(keyText) || /^results$/.test(keyText) || /^quizresults/.test(keyText))\n      ) {\n        return;\n      }\n\n      if (['select', 'radio', 'selectboxes'].indexOf(component.type) !== -1) {\n        out.push(component);\n        return;\n      }\n\n      if (A(component.components)) walk(component.components);\n      if (component.type === 'columns' && A(component.columns)) {\n        component.columns.forEach(function(column) {\n          walk((column && column.components) || []);\n        });\n      }\n    });\n  }\n\n  var questionsFieldset = (rootSchema.components || []).find(function(entry) {\n    var component = schemaOf(entry);\n    return component && component.type === 'fieldset' && /^quizquestions/i.test(component.key || '');\n  });\n\n  if (questionsFieldset) {\n    walk(questionsFieldset.components || []);\n  } else {\n    walk(rootSchema.components || []);\n  }\n\n  return out;\n}\n\nfunction ancestorSchemas() {\n  var out = [];\n  var seen = [];\n\n  function push(schema) {\n    if (!schema || seen.indexOf(schema) !== -1) return;\n    seen.push(schema);\n    out.push(schema);\n  }\n\n  push(currentSchema);\n\n  var cursor = instance && instance.parent;\n  while (cursor) {\n    push(schemaOf(cursor.component || cursor));\n    cursor = cursor.parent;\n  }\n\n  push(rootSchema);\n  return out;\n}\n\nfunction matchesFieldsetKey(component, baseName, suffix) {\n  var schema = schemaOf(component) || {};\n  var key = String(schema.key || '').trim().toLowerCase();\n  return key === (String(baseName || '') + String(suffix == null ? '' : suffix)).toLowerCase();\n}\n\nfunction getQuizScopeSuffix() {\n  var schemas = ancestorSchemas();\n\n  for (var index = 0; index < schemas.length; index += 1) {\n    var key = String((schemas[index] && schemas[index].key) || '').trim();\n    var match = key.match(/^(quizquestions|quizsetup|quizresults|results|quizsummary|result|incorrectanswers|passmark|answerkey)(d*)$/i);\n    if (match) return match[2];\n  }\n\n  return null;\n}\n\nfunction getDirectChildFieldset(root, names, suffix) {\n  var children = (schemaOf(root) || {}).components || [];\n\n  for (var index = 0; index < children.length; index += 1) {\n    var child = schemaOf(children[index]);\n    if (!child || child.type !== 'fieldset') continue;\n\n    for (var nameIndex = 0; nameIndex < (names || []).length; nameIndex += 1) {\n      if (matchesFieldsetKey(child, names[nameIndex], suffix)) {\n        return child;\n      }\n    }\n  }\n\n  return null;\n}\n\nfunction isQuizScope(scope) {\n  var schema = schemaOf(scope) || {};\n  var components = flat(schema.components || []);\n  var questionComponents = getQuizQuestionComponents(schema);\n  var hasAnswerGrid = components.some(function(entry) {\n    return entry && entry.type === 'datagrid' && /answerkey/i.test(matchText(entry));\n  });\n  var hasPassMark = components.some(function(entry) {\n    return entry && entry.type === 'number' && /passmark/i.test(matchText(entry));\n  });\n  var hasResults = components.some(function(entry) {\n    return entry && entry.type === 'textarea' && /(^result$|quizresult|incorrectanswers)/i.test(matchText(entry));\n  });\n\n  return questionComponents.length > 0 && hasAnswerGrid && (hasPassMark || hasResults);\n}\n\nfunction createSiblingQuizScope(root, suffix) {\n  if (suffix == null) return null;\n\n  var questionSection = getDirectChildFieldset(root, ['quizquestions'], suffix);\n  var setupSection = getDirectChildFieldset(root, ['quizsetup'], suffix);\n  var resultsSection = getDirectChildFieldset(root, ['quizresults', 'results'], suffix);\n  var components = [questionSection, setupSection, resultsSection].filter(Boolean);\n\n  if (!components.length) return null;\n\n  var scope = { components: components };\n  return isQuizScope(scope) ? scope : null;\n}\n\nfunction findQuizRoot() {\n  var ancestors = ancestorSchemas();\n\n  for (var index = 0; index < ancestors.length; index += 1) {\n    if (ancestors[index] && ancestors[index].customType === 'quiz') {\n      return ancestors[index];\n    }\n  }\n\n  for (var ancestorIndex = 0; ancestorIndex < ancestors.length; ancestorIndex += 1) {\n    var candidate = ancestors[ancestorIndex];\n    if (!candidate || candidate === rootSchema) continue;\n    if (isQuizScope(candidate)) return candidate;\n  }\n\n  var siblingScope = createSiblingQuizScope(rootSchema, getQuizScopeSuffix());\n  if (siblingScope) return siblingScope;\n\n  return isQuizScope(rootSchema) ? rootSchema : rootSchema;\n}\n\nfunction firstFilled(row, keys) {\n  var values = keys || [];\n\n  for (var index = 0; index < values.length; index += 1) {\n    var key = values[index];\n    if (!key) continue;\n\n    var cell = row && row[key];\n    if (cell !== undefined && cell !== null && String(cell).trim() !== '') {\n      return String(cell).trim();\n    }\n  }\n\n  return '';\n}\n\nfunction normalizeExpected(component, rawAnswer) {\n  var options = optionEntries(component);\n  var valueMap = {};\n\n  options.forEach(function(option) {\n    var value = String(option && option.value != null ? option.value : '').trim();\n    var label = String(option && option.label != null ? option.label : '').trim();\n    if (value) valueMap[normalize(value)] = value;\n    if (label) valueMap[normalize(label)] = value || label;\n  });\n\n  return tokensOf(rawAnswer)\n    .map(function(token) { return valueMap[normalize(token)] || token; })\n    .sort();\n}\n\nvar currentSchema = schemaOf(component);\nvar parentSchema = schemaOf(instance && instance.parent);\nvar grandparentSchema = schemaOf(instance && instance.parent && instance.parent.parent);\nvar rootSchema = schemaOf(form) || schemaOf(instance && instance.root) || {};\nvar quizRoot = findQuizRoot();\nvar components = flat(quizRoot.components || []);\nvar answerGrid = components.find(function(entry) {\n  return entry && entry.type === 'datagrid' && /answerkey/i.test(matchText(entry));\n});\nvar passMarkField = components.find(function(entry) {\n  return entry && entry.type === 'number' && /passmark/i.test(matchText(entry));\n});\nvar answerRows = answerGrid && A(data && data[answerGrid.key]) && data[answerGrid.key].length\n  ? data[answerGrid.key]\n  : answerGrid && A(answerGrid.defaultValue)\n    ? answerGrid.defaultValue\n    : [];\nvar answerGridColumns = answerGrid && A(answerGrid.components) ? answerGrid.components : [];\nvar questionComponentKeyField = answerGridColumns.find(function(column) {\n  return /(questioncomponentkey|componentkey)/i.test(matchText(column));\n});\nvar questionLabelField = answerGridColumns.find(function(column) {\n  return column !== questionComponentKeyField && /(questionlabel|question)/i.test(matchText(column));\n});\nvar answerValueField = answerGridColumns.find(function(column) {\n  return /(answervalue|correctvalue|answer)/i.test(matchText(column));\n});\nvar questionComponents = getQuizQuestionComponents(quizRoot);\nvar expectedByKey = {};\n\nanswerRows.forEach(function(row, index) {\n  var explicitKey = firstFilled(row, [\n    questionComponentKeyField && questionComponentKeyField.key,\n    'questioncomponentkey',\n    'questionComponentKey',\n    'questionkey',\n    'quizquestionkey',\n    'componentkey'\n  ]);\n\n  var matchedComponent = explicitKey\n    ? questionComponents.find(function(candidate) {\n        return String((candidate && candidate.key) || '') === explicitKey;\n      })\n    : null;\n\n  var label = firstFilled(row, [\n    questionLabelField && questionLabelField.key,\n    'questionlabel',\n    'questionLabel',\n    'question',\n    'quizquestion'\n  ]);\n\n  if (!matchedComponent && label) {\n    var labelMatches = questionComponents.filter(function(candidate) {\n      return normalize(candidate && candidate.label) === normalize(label);\n    });\n\n    if (labelMatches.length === 1) {\n      matchedComponent = labelMatches[0];\n    } else if (labelMatches.length > 1 && questionComponents[index]) {\n      matchedComponent = questionComponents[index];\n    }\n  }\n\n  if (!matchedComponent && questionComponents[index]) {\n    matchedComponent = questionComponents[index];\n  }\n\n  if (!matchedComponent || !matchedComponent.key) return;\n\n  var rawAnswer = firstFilled(row, [\n    answerValueField && answerValueField.key,\n    'answervalue',\n    'correctvalue',\n    'correctvalues',\n    'correctValueS',\n    'quizanswer',\n    'answer'\n  ]);\n\n  expectedByKey[matchedComponent.key] = normalizeExpected(matchedComponent, rawAnswer);\n});\n\nvar correct = 0;\nvar bad = [];\n\nquestionComponents.forEach(function(componentSchema) {\n  if (!componentSchema || !componentSchema.key) return;\n\n  var right = expectedByKey[componentSchema.key];\n  if (!right) return;\n\n  var rawValue = data ? data[componentSchema.key] : undefined;\n  var user = componentSchema.type === 'selectboxes'\n    ? Object.keys(rawValue || {}).filter(function(key) { return rawValue[key]; }).sort()\n    : toSorted(rawValue);\n\n  if (!user.length) return;\n\n  var matches =\n    user.length === right.length &&\n    user.every(function(item, index) {\n      return normalize(item) === normalize(right[index]);\n    });\n\n  if (matches) {\n    correct += 1;\n    return;\n  }\n\n  bad.push(String(componentSchema.label || componentSchema.key || '').trim());\n});\n\nvar total = Object.keys(expectedByKey).length || questionComponents.length || 1;\nvar needed = Math.min(\n  total,\n  Math.max(1, Number(data && passMarkField && data[passMarkField.key]) || Number(passMarkField && passMarkField.defaultValue) || 1)\n);\nvar quizState = {\n  bad: bad,\n  score: String(correct) + '/' + String(total),\n  result: correct >= needed ? 'Pass' : 'Try again'\n};\n\nquizState.resultText = quizState.result + ' - ' + quizState.score;\nvalue = quizState.bad.length ? '<ul><li>' + quizState.bad.join('</li><li>') + '</li></ul>' : '';",
+                  "key": "incorrectanswers",
+                  "type": "textarea",
+                  "input": true,
+                  "isUploadEnabled": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Near Miss Report",
+      "hideLabel": false,
+      "key": "nearMissReport",
+      "type": "fieldset",
+      "input": false,
+      "tableView": false,
+      "reportable": true,
+      "validate": {
+        "required": true
+      },
+      "legend": "Near Miss Report",
+      "components": [
+        {
+          "html": "<p>Report near misses before the end of the shift.</p><ul><li>Capture what happened, what could have happened, and who needs to act.</li><li>Attach evidence and assign follow-up actions.</li></ul>",
+          "label": "Reporting Note",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "refreshOnChange": false,
+          "key": "reportingNote",
+          "type": "content",
+          "customType": "disclaimer",
+          "input": false,
+          "tableView": false
+        },
+        {
+          "label": "Event Summary",
+          "hideLabel": false,
+          "key": "eventSummary",
+          "type": "textarea",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "rows": 3,
+          "autoExpand": true,
+          "labelWidth": 30,
+          "labelMargin": 3
+        },
+        {
+          "label": "Reported By",
+          "hideLabel": false,
+          "key": "reportedBy",
+          "type": "account",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "widget": "choicesjs",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "multiple": false,
+          "data": {
+            "values": [
+              {
+                "label": "Casey Morgan",
+                "value": "caseyMorgan"
+              },
+              {
+                "label": "Jamie Turner",
+                "value": "jamieTurner"
+              }
+            ]
+          }
+        },
+        {
+          "label": "Reporter Contact",
+          "hideLabel": false,
+          "key": "reporterContact",
+          "type": "phoneNumber",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "defaultValue": "",
+          "prefix": "",
+          "disableAutoFormatting": false,
+          "enableSeparateDialCode": false
+        },
+        {
+          "label": "Event Date And Time",
+          "hideLabel": false,
+          "key": "eventDateAndTime",
+          "type": "datetime",
+          "input": true,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "customType": "datetime",
+          "__dateTimeModeManual": false,
+          "__mode": "datetime",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "datePicker": {
+            "disableWeekends": false,
+            "disableWeekdays": false
+          },
+          "enableMinDateInput": false,
+          "enableMaxDateInput": false,
+          "widget": {
+            "type": "calendar",
+            "displayInTimezone": "viewer",
+            "locale": "en",
+            "useLocaleSettings": false,
+            "allowInput": true,
+            "mode": "single",
+            "enableTime": true,
+            "noCalendar": false,
+            "format": "yyyy-MM-dd hh:mm a",
+            "hourIncrement": 1,
+            "minuteIncrement": 1,
+            "time_24hr": false,
+            "minDate": null,
+            "disableWeekends": false,
+            "disableWeekdays": false,
+            "maxDate": null
+          }
+        },
+        {
+          "label": "Exact Location",
+          "hideLabel": false,
+          "key": "exactLocation",
+          "type": "address",
+          "input": true,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "components": [
+            {
+              "label": "Street",
+              "key": "street",
+              "type": "textfield",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              }
+            },
+            {
+              "label": "City",
+              "key": "city",
+              "type": "textfield",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              }
+            },
+            {
+              "label": "State",
+              "key": "state",
+              "type": "textfield",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              }
+            },
+            {
+              "label": "Zip Code",
+              "key": "zip",
+              "type": "number",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              }
+            }
+          ]
+        },
+        {
+          "label": "Was Medical Treatment Required?",
+          "hideLabel": false,
+          "key": "medicalTreatmentRequired",
+          "type": "radio",
+          "input": true,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "inline": true,
+          "optionsLabelPosition": "right",
+          "values": [
+            {
+              "label": "Yes",
+              "value": "yes",
+              "shortcut": "",
+              "flag": ""
+            },
+            {
+              "label": "No",
+              "value": "no",
+              "shortcut": "",
+              "flag": ""
+            }
+          ]
+        },
+        {
+          "label": "Treatment Details",
+          "hideLabel": false,
+          "key": "treatmentDetails",
+          "type": "textarea",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "rows": 1,
+          "autoExpand": true,
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "conditional": {
+            "show": true,
+            "when": "medicalTreatmentRequired",
+            "eq": "yes"
+          }
+        },
+        {
+          "label": "Potential Consequences",
+          "hideLabel": false,
+          "key": "potentialConsequences",
+          "type": "selectboxes",
+          "input": true,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "inputType": "checkbox",
+          "optionsLabelPosition": "right",
+          "modalEdit": true,
+          "values": [
+            {
+              "label": "Dropped object",
+              "value": "droppedobject",
+              "shortcut": "",
+              "flag": ""
+            },
+            {
+              "label": "Line of fire",
+              "value": "lineoffire",
+              "shortcut": "",
+              "flag": ""
+            },
+            {
+              "label": "Property damage",
+              "value": "propertydamage",
+              "shortcut": "",
+              "flag": ""
+            },
+            {
+              "label": "Environmental release",
+              "value": "environmentalrelease",
+              "shortcut": "",
+              "flag": ""
+            }
+          ]
+        },
+        {
+          "label": "Evidence Uploads",
+          "hideLabel": false,
+          "key": "evidenceUploads",
+          "type": "file",
+          "input": true,
+          "tableView": false,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "storage": "base64",
+          "fileTypes": [
+            {
+              "label": "",
+              "value": "image/*"
+            }
+          ],
+          "defaultValue": [],
+          "multiple": true,
+          "image": true,
+          "imageSize": "400",
+          "webcam": false
+        },
+        {
+          "label": "Witnesses",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "reorder": false,
+          "addAnotherPosition": "bottom",
+          "layoutFixed": false,
+          "enableRowGroups": false,
+          "initEmpty": false,
+          "hideLabel": true,
+          "tableView": false,
+          "defaultValue": [
+            {}
+          ],
+          "key": "witnesses",
+          "type": "datagrid",
+          "input": true,
+          "components": [
+            {
+              "label": "Grouping",
+              "labelWidth": 30,
+              "labelMargin": 3,
+              "hideLabel": true,
+              "key": "fieldset1",
+              "type": "fieldset",
+              "input": false,
+              "tableView": false,
+              "components": [
+                {
+                  "label": "Witness Name",
+                  "hideLabel": false,
+                  "key": "witnessName",
+                  "type": "textarea",
+                  "input": true,
+                  "tableView": true,
+                  "reportable": true,
+                  "validate": {
+                    "required": true
+                  },
+                  "rows": 1,
+                  "autoExpand": true,
+                  "labelWidth": 30,
+                  "labelMargin": 3
+                },
+                {
+                  "label": "Witness Phone",
+                  "hideLabel": false,
+                  "key": "witnessPhone",
+                  "type": "phoneNumber",
+                  "input": true,
+                  "tableView": true,
+                  "reportable": true,
+                  "validate": {
+                    "required": true
+                  },
+                  "defaultValue": "",
+                  "prefix": "",
+                  "disableAutoFormatting": false,
+                  "enableSeparateDialCode": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Corrective Action Register",
+          "labelWidth": 30,
+          "labelMargin": 3,
+          "customClass": "removeborder table-responsive",
+          "hideLabel": false,
+          "tableView": false,
+          "modal": true,
+          "rowDrafts": false,
+          "key": "correctiveActionRegister",
+          "type": "editgrid",
+          "displayAsTable": false,
+          "input": true,
+          "components": [
+            {
+              "label": "Corrective Action",
+              "hideLabel": false,
+              "key": "correctiveAction",
+              "type": "textarea",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "rows": 1,
+              "autoExpand": true,
+              "labelWidth": 30,
+              "labelMargin": 3
+            },
+            {
+              "label": "Owner",
+              "hideLabel": false,
+              "key": "owner1",
+              "type": "textarea",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "rows": 1,
+              "autoExpand": true,
+              "labelWidth": 30,
+              "labelMargin": 3
+            },
+            {
+              "label": "Due Date",
+              "hideLabel": false,
+              "key": "dueDate1",
+              "type": "datetime",
+              "input": true,
+              "tableView": false,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "customType": "datetime",
+              "__dateTimeModeManual": false,
+              "__mode": "date",
+              "labelWidth": 30,
+              "labelMargin": 3,
+              "datePicker": {
+                "disableWeekends": false,
+                "disableWeekdays": false
+              },
+              "enableMinDateInput": false,
+              "enableMaxDateInput": false,
+              "widget": {
+                "type": "calendar",
+                "displayInTimezone": "viewer",
+                "locale": "en",
+                "useLocaleSettings": false,
+                "allowInput": true,
+                "mode": "single",
+                "enableTime": false,
+                "noCalendar": false,
+                "format": "yyyy-MM-dd",
+                "hourIncrement": 1,
+                "minuteIncrement": 1,
+                "time_24hr": false,
+                "minDate": null,
+                "disableWeekends": false,
+                "disableWeekdays": false,
+                "maxDate": null
+              }
+            },
+            {
+              "label": "Status",
+              "hideLabel": false,
+              "key": "status",
+              "type": "select",
+              "input": true,
+              "tableView": true,
+              "reportable": true,
+              "validate": {
+                "required": true
+              },
+              "widget": "html5",
+              "placeholder": "-- Select --",
+              "data": {
+                "values": [
+                  {
+                    "label": "Open",
+                    "value": "open",
+                    "flag": ""
+                  },
+                  {
+                    "label": "In Progress",
+                    "value": "inprogress",
+                    "flag": ""
+                  },
+                  {
+                    "label": "Closed",
+                    "value": "closed",
+                    "flag": ""
+                  }
+                ]
+              }
+            }
+          ],
+          "addAnother": "Add corrective action",
+          "templates": {
+            "header": "",
+            "row": "{% var rowLayout = {\n  1:[5,3,2,2],\n}; %}\n\n{%\n  var gapX = 4;\n  var gapY = 4;\n  var radius = 4;\n  var bottomW = 2;\n  var counterW = 34;\n\n  // First-row header alignment control\n  var headerLineH = 16;     // px\n  var headerPadY  = 4;      // px\n  var headerPadX  = 6;      // px\n  var headerMinLines = 2;\n  var headerMinH = (headerLineH * headerMinLines) + (headerPadY * 2);\n\n  var cellPadY  = 1;\n  var cellPadX  = 2;\n  var valuePadY = 1;\n  var valuePadX = 2;\n\n  var rows = [];\n  var logical = 1;\n  var i = 0;\n\n  while (i < components.length) {\n    var layout = rowLayout[logical] || [1,1,1];\n    var cells = [];\n\n    for (var j = 0; j < layout.length && i < components.length; j++) {\n      cells.push({ comp: components[i], span: layout[j] });\n      i++;\n    }\n\n    if (!cells.length) break;\n    rows.push(cells);\n    logical++;\n  }\n\n  function sumSpans(cells){\n    var t = 0;\n    for (var k = 0; k < cells.length; k++) t += (cells[k].span || 1);\n    return t || 1;\n  }\n\n  function widthStyle(span, total, cellCount){\n    var gutters = Math.max(0, (cellCount || 0) - 1);\n    var fixedPx = counterW + gapX + (gutters * gapX);\n    var ratio = total ? (span / total) : 1;\n\n    if (ratio < 0) ratio = 0;\n    ratio = Math.round(ratio * 1000000) / 1000000;\n\n    return \"width:calc((100% - \" + fixedPx + \"px) * \" + ratio + \") !important;\";\n  }\n\n  var wrapStyle =\n    \"width:100% !important;margin:0 !important;padding:0 !important;\" +\n    \"text-align:left !important;\";\n\n  var tableStyle =\n    \"display:table !important;width:100% !important;table-layout:fixed !important;\" +\n    \"border:0 !important;margin:0 !important;padding:0 !important;\" +\n    \"background:transparent !important;text-align:left !important;\";\n\n  var rowStyle = \"display:table-row !important;\";\n\n  var cellBase =\n    \"display:table-cell !important;vertical-align:top !important;\" +\n    \"text-align:left !important;border:0 !important;margin:0 !important;\" +\n    \"background:transparent !important;box-sizing:border-box !important;\";\n\n  var gutterCell =\n    cellBase + \"width:\" + gapX + \"px !important;padding:0 !important;\";\n\n  var dataCell =\n    cellBase +\n    \"padding:\" + cellPadY + \"px \" + cellPadX + \"px !important;\" +\n    \"border-bottom:\" + bottomW + \"px solid #e8e8e8 !important;\" +\n    \"border-radius:\" + radius + \"px !important;\";\n\n  var headerChip =\n    \"display:block !important;width:100% !important;box-sizing:border-box !important;\" +\n    \"background:#f4f4f4 !important;border-radius:\" + radius + \"px !important;\" +\n    \"padding:\" + headerPadY + \"px \" + headerPadX + \"px !important;\" +\n    \"font-size:13px !important;font-weight:700 !important;letter-spacing:.1px !important;\" +\n    \"text-align:left !important;\" +\n    \"line-height:\" + headerLineH + \"px !important;\" +\n    \"min-height:\" + headerMinH + \"px !important;\" +\n    \"white-space:normal !important;\" +\n    \"overflow:hidden !important;\";\n\n  var valueStyle =\n    \"display:block !important;width:100% !important;box-sizing:border-box !important;\" +\n    \"font-size:13px !important;text-align:left !important;\" +\n    \"padding:\" + valuePadY + \"px \" + valuePadX + \"px !important;\" +\n    \"min-height:0 !important;\" +\n    \"overflow-wrap:anywhere !important;word-break:break-word !important;\";\n\n  var spacerStyle =\n    \"display:block !important;height:\" + gapY + \"px !important;\";\n\n  var btnBase =\n    \"display:inline-flex !important;align-items:center !important;justify-content:center !important;\" +\n    \"width:34px !important;height:34px !important;min-width:34px !important;min-height:34px !important;\" +\n    \"padding:0 !important;margin:0 0 0 8px !important;border-radius:6px !important;\" +\n    \"text-decoration:none !important;cursor:pointer !important;user-select:none !important;\" +\n    \"line-height:1 !important;box-sizing:border-box !important;\";\n\n  var btnLight  = btnBase + \"background:#f8f9fa !important;border:1px solid #ced4da !important;color:#495057 !important;\";\n  var btnDanger = btnBase + \"background:#dc3545 !important;border:1px solid #dc3545 !important;color:#fff !important;\";\n\n  var actionsWrap =\n    \"width:100% !important;text-align:right !important;margin-top:4px !important;padding-top:0 !important;\";\n%}\n\n{% rows.forEach(function(cells, rIdx){ var total = sumSpans(cells); %}\n\n  <div style=\"{{ wrapStyle }}\">\n    <div style=\"{{ tableStyle }}\">\n      <div style=\"{{ rowStyle }}\">\n\n        <div style=\"{{ gutterCell }}\"></div>\n\n        {% cells.forEach(function(cell, cIdx){ %}\n          <div style=\"{{ dataCell + widthStyle(cell.span, total, cells.length) }}\">\n\n            {% if (typeof rowIndex !== 'undefined' && rowIndex === 0) { %}\n              <div style=\"{{ headerChip }}\">{{ cell.comp.label }}</div>\n            {% } %}\n\n            <div style=\"{{ valueStyle }}\">{{ getView(cell.comp, row[cell.comp.key]) }}</div>\n          </div>\n\n          {% if (cIdx < cells.length - 1) { %}\n            <div style=\"{{ gutterCell }}\"></div>\n          {% } %}\n        {% }); %}\n\n      </div>\n    </div>\n  </div>\n\n  {% if (rIdx < rows.length - 1) { %}\n    <div style=\"{{ spacerStyle }}\"></div>\n  {% } %}\n\n{% }); %}\n\n{% if (!instance.options.readOnly && !instance.disabled) { %}\n  <div style=\"{{ actionsWrap }}\">\n    <button class=\"editRow\" style=\"{{ btnLight }}\" type=\"button\" tabindex=\"0\" aria-label=\"Edit row\">\n      <i class=\"{{ iconClass('edit') }}\" style=\"line-height:1 !important;pointer-events:none;\"></i>\n    </button>\n\n    {% if (instance.hasRemoveButtons && instance.hasRemoveButtons()) { %}\n      <button class=\"removeRow\" style=\"{{ btnDanger }}\" type=\"button\" tabindex=\"0\" aria-label=\"Delete row\">\n        <i class=\"{{ iconClass('trash') }}\" style=\"line-height:1 !important;pointer-events:none;\"></i>\n      </button>\n    {% } %}\n  </div>\n{% } %}\n"
+          }
+        },
+        {
+          "label": "Potential Loss Estimate",
+          "hideLabel": false,
+          "key": "potentialLossEstimate",
+          "type": "currency",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "__numericStyleManual": false,
+          "currency": "USD",
+          "delimiter": true,
+          "decimal": ".",
+          "thousands": ",",
+          "defaultValue": 2500
+        },
+        {
+          "label": "Contractor Callout Cost",
+          "hideLabel": false,
+          "key": "contractorCalloutCost",
+          "type": "currency",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "__numericStyleManual": false,
+          "currency": "USD",
+          "delimiter": true,
+          "decimal": ".",
+          "thousands": ",",
+          "defaultValue": 450
+        },
+        {
+          "label": "Total Estimated Exposure",
+          "hideLabel": false,
+          "key": "totalEstimatedExposure",
+          "type": "currency",
+          "input": true,
+          "tableView": true,
+          "reportable": true,
+          "validate": {
+            "required": true
+          },
+          "__numericStyleManual": false,
+          "currency": "USD",
+          "delimiter": true,
+          "decimal": ".",
+          "thousands": ",",
+          "calculateValue": "value = (data.potentialLossEstimate || 0) + (data.contractorCalloutCost || 0);"
+        }
+      ]
+    }
+  ]
+}

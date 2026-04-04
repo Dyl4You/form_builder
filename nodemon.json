@@ -1,0 +1,12 @@
+{
+  "watch": [
+    "src",
+    "package.json",
+    ".env",
+    "nodemon.json"
+  ],
+  "ext": "js,mjs,json",
+  "ignore": [
+    "data/template-library/**"
+  ]
+}

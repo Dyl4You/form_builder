@@ -4,31 +4,31 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "docs:capture": "node scripts/captureGuideMedia.js",
+    "docs:hs-pack": "node scripts/generateHsTrainingAssets.js",
+    "migrate:templates": "node scripts/migrateLegacyTemplates.js",
+    "test": "node --test"
   },
   "dependencies": {
-    "axios": "^1.10.0",
+    "@google-cloud/storage": "^7.19.0",
+    "ajv": "^8.18.0",
+    "compression": "^1.8.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "fast-xml-parser": "^5.2.5",
-    "form-data": "^4.0.3",
-    "framer-motion": "^12.4.3",
-    "lodash": "^4.17.21",
-    "mammoth": "^1.9.1",
-    "multer": "^2.0.1",
-    "next": "^15.1.7",
+    "lodash": "^4.17.23",
+    "mammoth": "^1.12.0",
+    "multer": "^2.1.1",
     "openai": "^5.6.0",
-    "pdf-image": "^2.0.0",
-    "pdf-parse": "^1.1.1",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "sharp": "^0.34.2",
-    "tesseract.js": "^5.1.1",
-    "tmp-promise": "^3.0.3"
+    "p-limit": "^6.2.0",
+    "pdf-parse": "^1.1.4",
+    "pg": "^8.20.0",
+    "sharp": "^0.34.5",
+    "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
-    "@types/react": "^19.0.8",
-    "@types/react-dom": "^19.0.3",
-    "nodemon": "^2.0.22"
+    "nodemon": "^2.0.22",
+    "pg-mem": "^3.0.14",
+    "playwright": "^1.58.2"
   }
 }
