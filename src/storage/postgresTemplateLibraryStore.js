@@ -1051,7 +1051,7 @@ class PostgresTemplateLibraryStore {
       )
     ]);
 
-    const topComponents = await this.getTopComponents(workspaceId, 5);
+    const topComponents = await this.getTopComponents(workspaceId);
     const leastUsedTypes = await this.getLeastUsedTypes(workspaceId, 3);
     const latestRow = latestVersion.rows[0] || null;
     const latestSummary = latestRow
@@ -1093,16 +1093,26 @@ class PostgresTemplateLibraryStore {
     };
   }
 
-  async getTopComponents(workspaceId = this.workspaceId, limit = 5) {
-    const result = await this.pool.query(
-      `SELECT component_type, component_count
-         FROM workspace_component_totals
-        WHERE workspace_id = $1
-          AND component_count > 0
-        ORDER BY component_count DESC, component_type ASC
-        LIMIT $2`,
-      [workspaceId, limit]
-    );
+  async getTopComponents(workspaceId = this.workspaceId, limit) {
+    const hasLimit = Number.isFinite(limit) && limit > 0;
+    const result = hasLimit
+      ? await this.pool.query(
+        `SELECT component_type, component_count
+           FROM workspace_component_totals
+          WHERE workspace_id = $1
+            AND component_count > 0
+          ORDER BY component_count DESC, component_type ASC
+          LIMIT $2`,
+        [workspaceId, limit]
+      )
+      : await this.pool.query(
+        `SELECT component_type, component_count
+           FROM workspace_component_totals
+          WHERE workspace_id = $1
+            AND component_count > 0
+          ORDER BY component_count DESC, component_type ASC`,
+        [workspaceId]
+      );
 
     return result.rows.map((row) => ({
       type: row.component_type,

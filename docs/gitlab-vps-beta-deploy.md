@@ -8,7 +8,7 @@ It uses:
 - `systemd` to keep the Node app running
 - Nginx + Let's Encrypt for HTTPS
 - `NODE_ENV=staging` so the app can run without Postgres and GCS
-- `ALLOWED_EMAILS` so only invited Google accounts can sign in
+- `ALLOWED_EMAILS_FILE` so only invited Google accounts can sign in
 
 ## 1. Prepare The Server
 
@@ -28,7 +28,7 @@ Use [deploy/vps/form-builder.env.example](/Users/dylan/Downloads/form-builder/de
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_OAUTH_REDIRECT_URI`
-- `ALLOWED_EMAILS`
+- `ALLOWED_EMAILS_FILE`
 - `APP_SESSION_SECRET`
 
 After DNS is live, issue TLS:
@@ -98,12 +98,13 @@ curl -I https://forms.example.com/login
 To add or remove beta users:
 
 ```bash
-sudo nano /etc/form-builder.env
+sudo nano /etc/form-builder-allowed-emails.txt
 sudo systemctl restart form-builder
 ```
 
-Update:
+One email per line:
 
 ```text
-ALLOWED_EMAILS=you@example.com,friend@example.com
+you@example.com
+friend@example.com
 ```

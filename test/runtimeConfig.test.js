@@ -1,3 +1,6 @@
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
@@ -88,4 +91,43 @@ test('allowed email parsing is empty by default and opt-in when configured', () 
     }),
     false
   );
+});
+
+test('allowed email parsing supports one-email-per-line allowlist files', async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'allowed-emails-'));
+  const filePath = path.join(tempDir, 'emails.txt');
+
+  fs.writeFileSync(filePath, [
+    'alpha@example.com',
+    '  bravo@example.com  ',
+    '# comment line',
+    '',
+    'CHARLIE@EXAMPLE.COM'
+  ].join('\n'));
+
+  try {
+    assert.deepEqual(
+      Array.from(parseAllowedEmails({
+        ALLOWED_EMAILS: 'delta@example.com',
+        ALLOWED_EMAILS_FILE: filePath
+      })).sort(),
+      ['alpha@example.com', 'bravo@example.com', 'charlie@example.com', 'delta@example.com']
+    );
+
+    assert.equal(
+      isEmailAllowed('charlie@example.com', {
+        ALLOWED_EMAILS_FILE: filePath
+      }),
+      true
+    );
+
+    assert.equal(
+      isEmailAllowed('nobody@example.com', {
+        ALLOWED_EMAILS_FILE: filePath
+      }),
+      false
+    );
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 });

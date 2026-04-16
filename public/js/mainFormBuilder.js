@@ -2653,6 +2653,64 @@ function cloneComponentGroupResponseOptions(mode = "survey", options = []) {
   ));
 }
 
+function getBuilderToggleActionsBundleFn() {
+  if (typeof toggleActionsBundle === "function") {
+    return toggleActionsBundle;
+  }
+
+  if (typeof window !== "undefined" && typeof window.toggleActionsBundle === "function") {
+    return window.toggleActionsBundle;
+  }
+
+  return null;
+}
+
+function isComponentGroupActionsEnabled(component) {
+  const children = Array.isArray(component?.components) ? component.components : [];
+  return children.some(child =>
+    child?.builderComponentGroupManaged === true
+    && child?.type === "radio"
+    && !!child?._actionsDriverKey
+  );
+}
+
+function clearManagedComponentGroupRadioActions(component) {
+  const toggleBundle = getBuilderToggleActionsBundleFn();
+  if (!toggleBundle || !Array.isArray(component?.components)) return;
+
+  const radios = component.components.filter(child =>
+    child?.builderComponentGroupManaged === true
+    && child?.type === "radio"
+    && !!child?._actionsDriverKey
+  );
+
+  radios.forEach(radio => {
+    toggleBundle(component.components, false, radio);
+  });
+}
+
+function syncManagedComponentGroupRadioActions(component, enable) {
+  const toggleBundle = getBuilderToggleActionsBundleFn();
+  if (!toggleBundle || !Array.isArray(component?.components)) return;
+
+  const radios = component.components.filter(child =>
+    child?.builderComponentGroupManaged === true
+    && child?.type === "radio"
+  );
+
+  radios.forEach(radio => {
+    toggleBundle(component.components, !!enable, radio);
+  });
+}
+
+function isBuilderActionsEnabled(component) {
+  if (component?.customType === "componentGroup") {
+    return isComponentGroupActionsEnabled(component);
+  }
+
+  return !!component?._actionsDriverKey;
+}
+
 function getComponentGroupConfig(component) {
   const children = Array.isArray(component?.components)
     ? component.components.filter(child => !child?.builderHidden)
@@ -2667,7 +2725,8 @@ function getComponentGroupConfig(component) {
       items: Array.isArray(surveyChild.questions)
         ? surveyChild.questions.map(question => question?.label || question).filter(Boolean)
         : [],
-      responses: cloneComponentGroupResponseOptions("survey", surveyChild.values || [])
+      responses: cloneComponentGroupResponseOptions("survey", surveyChild.values || []),
+      actionsEnabled: false
     };
   }
 
@@ -2676,14 +2735,16 @@ function getComponentGroupConfig(component) {
     return {
       mode: "radio",
       items: radioChildren.map(radio => radio?.label || "").filter(Boolean),
-      responses: cloneComponentGroupResponseOptions("radio", radioChildren[0]?.values || [])
+      responses: cloneComponentGroupResponseOptions("radio", radioChildren[0]?.values || []),
+      actionsEnabled: isComponentGroupActionsEnabled(component)
     };
   }
 
   return {
     mode: "survey",
     items: [],
-    responses: cloneComponentGroupResponseOptions("survey")
+    responses: cloneComponentGroupResponseOptions("survey"),
+    actionsEnabled: false
   };
 }
 
@@ -2696,6 +2757,10 @@ function applyComponentGroupConfig(component, config = {}) {
     : sectionSeed;
   const mode = config.mode === "radio" ? "radio" : "survey";
   const itemLabels = normalizeComponentGroupItemLabels(config.items);
+  const actionsEnabled = mode === "radio" && config.actionsEnabled === true;
+
+  clearManagedComponentGroupRadioActions(component);
+
   const existingChildren = Array.isArray(component.components) ? component.components : [];
   const managedChildren = existingChildren.filter(child => child?.builderComponentGroupManaged === true);
   const preservedChildren = existingChildren.filter(child =>
@@ -2755,6 +2820,11 @@ function applyComponentGroupConfig(component, config = {}) {
   }
 
   component.components = [...nextManagedChildren, ...preservedChildren];
+
+  if (mode === "radio") {
+    syncManagedComponentGroupRadioActions(component, actionsEnabled);
+  }
+
   return component;
 }
 
@@ -2931,7 +3001,7 @@ else if (chosenType === "componentGroup") {
       _finalRows,
       _selectedDTMode,
       _styleOrDT,
-      _actionsEnabled,
+      actionsEnabled,
       _speedLabels,
       _speedValues,
       _incomingDefault,
@@ -2947,7 +3017,8 @@ else if (chosenType === "componentGroup") {
       const cmp = buildComponentGroupFieldset(resolvedSectionLabel, {
         mode: componentGroupMode,
         items: componentGroupItems,
-        responses: componentGroupResponses
+        responses: componentGroupResponses,
+        actionsEnabled
       });
 
       insertComponentIntoBuilder(cmp);
@@ -3137,7 +3208,6 @@ function renderBuilderSectionCard({ key, label, selected = false, index = 0 }) {
       type="button"
       class="fieldset-card ${selected ? "selected" : ""}"
       data-key="${safeKey}"
-      data-tooltip="${safeLabel}"
       aria-label="${safeAriaLabel}"
       aria-pressed="${selected ? "true" : "false"}"
     >
@@ -3616,7 +3686,7 @@ function actionButtonsHTML(showColumn = true, comp = null) {
   const inlineOn = supportsInlineLayoutToggle && !!comp?.inline ? ' on' : '';
   const reqOn  = comp?.validate?.required ? ' on' : '';
   const hideOn = comp?.hideLabel          ? ' on' : '';
-  const actOn  = comp?._actionsDriverKey  ? ' on' : '';
+  const actOn  = isBuilderActionsEnabled(comp) ? ' on' : '';
   const flagOn = supportsOptionFlags && hasEnabledOptionFlags(comp) ? ' on' : '';
 
   /* ── LEFT cluster ────────────────────────────────────────────────── */
@@ -4632,7 +4702,7 @@ function syncComponentCardFlyoutState(card, comp) {
 
   const actionsBtn = card.querySelector('.toggle-btn[data-tog="actions"]');
   if (actionsBtn) {
-    actionsBtn.classList.toggle("on", !!comp._actionsDriverKey);
+    actionsBtn.classList.toggle("on", isBuilderActionsEnabled(comp));
   }
 
   const flagsBtn = card.querySelector('.toggle-btn[data-tog="flags"]');
@@ -4907,6 +4977,7 @@ function editBuilderComponent(comp) {
   let initialComponentGroupMode = "survey";
   let initialComponentGroupItems = [];
   let initialComponentGroupResponses = [];
+  let initialActionsEnabled = isBuilderActionsEnabled(comp);
 
     let initialSpeedLabels = [];
     let initialSpeedValues = [];
@@ -4947,6 +5018,7 @@ if (comp.customType === "disclaimer" || comp.type === "content") {
     initialComponentGroupMode = componentGroupConfig.mode;
     initialComponentGroupItems = componentGroupConfig.items;
     initialComponentGroupResponses = componentGroupConfig.responses;
+    initialActionsEnabled = componentGroupConfig.actionsEnabled;
   }
 
   // If textarea, read the current row count or default to 1
@@ -5024,7 +5096,8 @@ const modalType = comp.customType
           sectionLabel: comp.label,
           mode: finalComponentGroupMode,
           items: finalComponentGroupItems,
-          responses: finalComponentGroupResponses
+          responses: finalComponentGroupResponses,
+          actionsEnabled
         });
       }
       
@@ -5218,6 +5291,8 @@ if (comp.type === 'number' || comp.type === 'currency') {
             }
           });
         }
+      } else if (comp.customType === "componentGroup") {
+        /* handled by applyComponentGroupConfig so radio groups can own per-radio actions */
       } else {
         /* every other component behaves as before */
         const parentArray = Array.isArray(componentOwnerArray)
@@ -5260,7 +5335,7 @@ if (comp.type === 'number' || comp.type === 'currency') {
     initialRows,
     initialDTMode,  
     comp.type, 
-    (comp._actionsDriverKey ? true : false),                     // 11
+    initialActionsEnabled,                                       // 11
     initialSpeedLabels,                  // 12
     initialSpeedValues,                  // 13
     comp.defaultValue,
@@ -5810,10 +5885,21 @@ if (isOpen) keepRightActionsHoverOpen(box, { immediate: true });
 
         switch (tog.dataset.tog) {
           case "actions": {
-            const parentArr = findComponentParentArrayByKey(formJSON.components, comp.key)
-              || getActiveBuilderDestination();
             const enable = !tog.classList.contains("on");
-            toggleActionsBundle(parentArr, enable, comp);
+            if (comp.customType === "componentGroup") {
+              const componentGroupConfig = getComponentGroupConfig(comp);
+              applyComponentGroupConfig(comp, {
+                sectionLabel: comp.label || comp.legend || "Field Group",
+                mode: componentGroupConfig.mode,
+                items: componentGroupConfig.items,
+                responses: componentGroupConfig.responses,
+                actionsEnabled: enable
+              });
+            } else {
+              const parentArr = findComponentParentArrayByKey(formJSON.components, comp.key)
+                || getActiveBuilderDestination();
+              toggleActionsBundle(parentArr, enable, comp);
+            }
             nextToggleState = enable;
             break;
           }
@@ -6850,15 +6936,29 @@ window.resetBuilderWorkspace = resetBuilderWorkspace;
 const saveTemplateBtn = document.getElementById('saveTemplateBtn');
 const saveTemplateModal = document.getElementById('saveTemplateModal');
 const saveTemplateNameInput = document.getElementById('saveTemplateNameInput');
-const saveTemplateCancelBtn = document.getElementById('saveTemplateCancelBtn');
-const saveTemplateConfirmBtn = document.getElementById('saveTemplateConfirmBtn');
-const saveTemplateTranslateBtn = document.getElementById('saveTemplateTranslateBtn');
 const saveTemplateTranslationLanguageSelect = document.getElementById('saveTemplateTranslationLanguageSelect');
-const saveTemplateModalTitle = document.getElementById('saveTemplateModalTitle');
-const saveTemplateModalCopy = document.getElementById('saveTemplateModalCopy');
-const overlay = document.getElementById('overlay');
+const saveTemplateTranslationLanguageList = document.getElementById('saveTemplateTranslationLanguageList');
+const saveTemplateGroupPickerInput = document.getElementById('saveTemplateGroupPickerInput');
+const saveTemplateGroupPickerList = document.getElementById('saveTemplateGroupPickerList');
+const saveTemplateGroupsStatus = document.getElementById('saveTemplateGroupsStatus');
+const saveTemplateLauncher = saveTemplateBtn?.closest('.save-template-launcher') || null;
 let isSavingTemplate = false;
 let activeSaveTemplateAction = 'save';
+const saveTemplateCorfixGroupsState = {
+  groups: [],
+  selectedIds: new Set(
+    Array.isArray(window._currentCorfixGroupIds)
+      ? window._currentCorfixGroupIds
+        .map((value) => String(value || '').trim())
+        .filter(Boolean)
+      : []
+  ),
+  loading: false,
+  creating: false,
+  error: '',
+  reason: '',
+  pendingName: ''
+};
 
 function isEditingSavedTemplate() {
   return Boolean(window._currentTemplateId);
@@ -6876,32 +6976,262 @@ function setSaveTemplateBusy(isBusy) {
   isSavingTemplate = Boolean(isBusy);
   if (saveTemplateBtn) {
     saveTemplateBtn.disabled = isSavingTemplate;
+    saveTemplateBtn.textContent = getSaveTemplateButtonLabels(activeSaveTemplateAction, isSavingTemplate).saveLabel;
     if (!isSavingTemplate) {
       saveTemplateBtn.blur();
     }
   }
 }
 
+function isSaveTemplatePanelOpen() {
+  return Boolean(saveTemplateModal && !saveTemplateModal.hidden);
+}
+
+function syncSaveTemplateLauncherState() {
+  const isOpen = isSaveTemplatePanelOpen();
+  if (saveTemplateLauncher) {
+    saveTemplateLauncher.classList.toggle('is-open', isOpen);
+  }
+  if (saveTemplateBtn) {
+    saveTemplateBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    saveTemplateBtn.textContent = getSaveTemplateButtonLabels(activeSaveTemplateAction, isSavingTemplate).saveLabel;
+  }
+}
+
 function getSaveTemplateButtonLabels(action = 'save', isBusy = false) {
   const createNewTemplate = !isEditingSavedTemplate();
-  const saveIdleLabel = createNewTemplate ? 'Save Template' : 'Save Version';
-  const translateIdleLabel = createNewTemplate ? 'Save & Translate' : 'Save Version & Translate';
+  const saveIdleLabel = createNewTemplate ? 'Publish' : 'Publish Version';
+  const saveConfirmLabel = createNewTemplate ? 'Publish Now' : 'Publish Version Now';
 
   if (!isBusy) {
     return {
-      saveLabel: saveIdleLabel,
-      translateLabel: translateIdleLabel
+      saveLabel: isSaveTemplatePanelOpen() ? saveConfirmLabel : saveIdleLabel
     };
   }
 
   return {
     saveLabel: action === 'save'
-      ? (createNewTemplate ? 'Saving Template...' : 'Saving Version...')
-      : saveIdleLabel,
-    translateLabel: action === 'translate'
-      ? (createNewTemplate ? 'Saving & Translating...' : 'Saving Version & Translating...')
-      : translateIdleLabel
+      ? (createNewTemplate ? 'Publishing...' : 'Publishing Version...')
+      : saveIdleLabel
   };
+}
+
+function normalizeCorfixGroupId(value) {
+  return String(value || '').trim();
+}
+
+function persistSelectedCorfixGroupIds() {
+  window._currentCorfixGroupIds = [...saveTemplateCorfixGroupsState.selectedIds];
+}
+
+function getSelectedCorfixGroupIds() {
+  return [...saveTemplateCorfixGroupsState.selectedIds];
+}
+
+function sortCorfixGroups(groups = []) {
+  return groups
+    .filter((group) => group && typeof group === 'object')
+    .map((group) => ({
+      id: normalizeCorfixGroupId(group.id),
+      name: String(group.name || '').trim(),
+      templateIds: Array.isArray(group.templateIds) ? group.templateIds : [],
+      hidden: Boolean(group.hidden),
+      subtrade: Boolean(group.subtrade)
+    }))
+    .filter((group) => group.id && group.name)
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function upsertCorfixGroup(group) {
+  if (!group || typeof group !== 'object') return;
+  const normalized = sortCorfixGroups([group])[0];
+  if (!normalized) return;
+
+  const nextGroups = saveTemplateCorfixGroupsState.groups
+    .filter((entry) => entry.id !== normalized.id)
+    .concat(normalized);
+
+  saveTemplateCorfixGroupsState.groups = sortCorfixGroups(nextGroups);
+}
+
+function findCorfixGroupByName(name = '') {
+  const normalizedName = String(name || '').trim().toLowerCase();
+  if (!normalizedName) return null;
+  return saveTemplateCorfixGroupsState.groups.find(
+    (group) => group.name.toLowerCase() === normalizedName
+  ) || null;
+}
+
+function setSaveTemplateGroupsStatus(message, tone = 'muted') {
+  if (!saveTemplateGroupsStatus) return;
+  saveTemplateGroupsStatus.textContent = message || '';
+  saveTemplateGroupsStatus.classList.toggle('is-error', tone === 'error');
+  saveTemplateGroupsStatus.classList.toggle('is-success', tone === 'success');
+  saveTemplateGroupsStatus.hidden = !message;
+}
+
+function getSaveTemplateTranslationLanguageMap() {
+  if (!saveTemplateTranslationLanguageSelect?.dataset?.languageMap) return {};
+  try {
+    return JSON.parse(saveTemplateTranslationLanguageSelect.dataset.languageMap);
+  } catch (error) {
+    console.warn('Could not parse translation language map.', error);
+    return {};
+  }
+}
+
+function renderSaveTemplateGroups() {
+  if (saveTemplateGroupPickerInput) {
+    saveTemplateGroupPickerInput.disabled = Boolean(
+      isSavingTemplate
+      || saveTemplateCorfixGroupsState.loading
+      || saveTemplateCorfixGroupsState.creating
+    );
+  }
+  const totalGroups = saveTemplateCorfixGroupsState.groups.length;
+  const selectedGroupId = [...saveTemplateCorfixGroupsState.selectedIds][0] || '';
+  const selectedGroup = saveTemplateCorfixGroupsState.groups.find((group) => group.id === selectedGroupId) || null;
+  const pendingName = String(saveTemplateCorfixGroupsState.pendingName || '').trim();
+
+  if (saveTemplateCorfixGroupsState.loading) {
+    setSaveTemplateGroupsStatus('Loading current Corfix groups...');
+    return;
+  }
+
+  if (saveTemplateCorfixGroupsState.error) {
+    setSaveTemplateGroupsStatus(saveTemplateCorfixGroupsState.error, 'error');
+    return;
+  }
+
+  setSaveTemplateGroupsStatus('');
+
+  if (saveTemplateGroupPickerInput) {
+    const nextValue = selectedGroup?.name || pendingName;
+    if (saveTemplateGroupPickerInput.value !== nextValue) {
+      saveTemplateGroupPickerInput.value = nextValue;
+    }
+  }
+
+  if (saveTemplateGroupPickerList) {
+    saveTemplateGroupPickerList.replaceChildren();
+    const fragment = document.createDocumentFragment();
+    saveTemplateCorfixGroupsState.groups.forEach((group) => {
+      const option = document.createElement('option');
+      option.value = group.name;
+      option.label = group.name;
+      fragment.appendChild(option);
+    });
+    saveTemplateGroupPickerList.appendChild(fragment);
+  }
+}
+
+async function loadSaveTemplateCorfixGroups() {
+  if (!saveTemplateGroupPickerInput) return;
+
+  saveTemplateCorfixGroupsState.loading = true;
+  saveTemplateCorfixGroupsState.error = '';
+  saveTemplateCorfixGroupsState.reason = '';
+  renderSaveTemplateGroups();
+
+  try {
+    const response = await fetch('/api/corfix/groups');
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload?.error || 'Failed to load Corfix groups.');
+    }
+
+    if (!payload?.ok) {
+      saveTemplateCorfixGroupsState.groups = [];
+      saveTemplateCorfixGroupsState.reason = String(payload?.reason || '').trim();
+      saveTemplateCorfixGroupsState.error = String(payload?.error || payload?.reason || 'Failed to load Corfix groups.');
+      return;
+    }
+
+    saveTemplateCorfixGroupsState.groups = sortCorfixGroups(payload.groups || []);
+    const availableIds = new Set(saveTemplateCorfixGroupsState.groups.map((group) => group.id));
+    saveTemplateCorfixGroupsState.selectedIds = new Set(
+      [...saveTemplateCorfixGroupsState.selectedIds].filter((groupId) => availableIds.has(groupId))
+    );
+    persistSelectedCorfixGroupIds();
+  } catch (error) {
+    saveTemplateCorfixGroupsState.groups = [];
+    saveTemplateCorfixGroupsState.error = `Could not load Corfix groups: ${String(error?.message || error)}`;
+  } finally {
+    saveTemplateCorfixGroupsState.loading = false;
+    renderSaveTemplateGroups();
+  }
+}
+
+async function ensureCorfixGroupSelection() {
+  const trimmedName = String(saveTemplateGroupPickerInput?.value || saveTemplateCorfixGroupsState.pendingName || '').trim();
+  if (!trimmedName) {
+    showNotification('Group name is required.', 'warn');
+    saveTemplateGroupPickerInput?.focus();
+    return null;
+  }
+
+  const existingGroup = findCorfixGroupByName(trimmedName);
+  if (existingGroup) {
+    saveTemplateCorfixGroupsState.selectedIds = new Set([existingGroup.id]);
+    saveTemplateCorfixGroupsState.pendingName = '';
+    persistSelectedCorfixGroupIds();
+    renderSaveTemplateGroups();
+    return existingGroup.id;
+  }
+
+  saveTemplateCorfixGroupsState.creating = true;
+  saveTemplateCorfixGroupsState.error = '';
+  saveTemplateCorfixGroupsState.reason = '';
+  setSaveTemplateModalBusy(isSavingTemplate, activeSaveTemplateAction);
+  renderSaveTemplateGroups();
+
+  try {
+    const response = await fetch('/api/corfix/groups', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: trimmedName
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload?.error || 'Failed to create Corfix group.');
+    }
+
+    if (!payload?.ok) {
+      const message = String(payload?.reason || payload?.error || 'Failed to create Corfix group.').trim();
+      saveTemplateCorfixGroupsState.error = message;
+      showNotification(message, payload?.skipped ? 'warn' : 'error');
+      return null;
+    }
+
+    if (payload.group) {
+      saveTemplateCorfixGroupsState.error = '';
+      saveTemplateCorfixGroupsState.reason = '';
+      upsertCorfixGroup(payload.group);
+      saveTemplateCorfixGroupsState.selectedIds = new Set([payload.group.id]);
+      saveTemplateCorfixGroupsState.pendingName = '';
+      persistSelectedCorfixGroupIds();
+      renderSaveTemplateGroups();
+      return payload.group.id;
+    }
+
+    await loadSaveTemplateCorfixGroups();
+    return null;
+  } catch (error) {
+    const message = `Could not add Corfix group: ${String(error?.message || error)}`;
+    saveTemplateCorfixGroupsState.error = message;
+    showNotification(message, 'error');
+    return null;
+  } finally {
+    saveTemplateCorfixGroupsState.creating = false;
+    setSaveTemplateModalBusy(isSavingTemplate, activeSaveTemplateAction);
+    renderSaveTemplateGroups();
+  }
 }
 
 function setSaveTemplateModalBusy(isBusy, action = activeSaveTemplateAction) {
@@ -6909,22 +7239,17 @@ function setSaveTemplateModalBusy(isBusy, action = activeSaveTemplateAction) {
   if (saveTemplateNameInput) {
     saveTemplateNameInput.disabled = Boolean(isBusy);
   }
-  if (saveTemplateCancelBtn) {
-    saveTemplateCancelBtn.disabled = Boolean(isBusy);
-  }
   if (saveTemplateTranslationLanguageSelect) {
     saveTemplateTranslationLanguageSelect.disabled = Boolean(isBusy);
   }
 
-  const labels = getSaveTemplateButtonLabels(action, Boolean(isBusy));
-  if (saveTemplateConfirmBtn) {
-    saveTemplateConfirmBtn.disabled = Boolean(isBusy);
-    saveTemplateConfirmBtn.textContent = labels.saveLabel;
+  if (saveTemplateBtn) {
+    saveTemplateBtn.disabled = Boolean(isBusy || saveTemplateCorfixGroupsState.creating);
+    saveTemplateBtn.textContent = getSaveTemplateButtonLabels(action, Boolean(isBusy)).saveLabel;
   }
-  if (saveTemplateTranslateBtn) {
-    saveTemplateTranslateBtn.disabled = Boolean(isBusy);
-    saveTemplateTranslateBtn.textContent = labels.translateLabel;
-  }
+
+  syncSaveTemplateLauncherState();
+  renderSaveTemplateGroups();
 }
 
 function focusSaveTemplateNameInput() {
@@ -6936,51 +7261,37 @@ function focusSaveTemplateNameInput() {
 }
 
 function openSaveTemplateModal() {
-  if (!saveTemplateModal || !saveTemplateNameInput || !overlay) return;
+  if (!saveTemplateModal || !saveTemplateNameInput) return;
 
-  if (typeof disableModalKeys === 'function') {
-    disableModalKeys(saveTemplateModal);
-  }
-
-  const createNewTemplate = !isEditingSavedTemplate();
-  if (saveTemplateModalTitle) {
-    saveTemplateModalTitle.textContent = createNewTemplate ? 'Save Template' : 'Save Template Version';
-  }
-  if (saveTemplateModalCopy) {
-    saveTemplateModalCopy.textContent = createNewTemplate
-      ? 'Name this template before saving it to your library.'
-      : 'Update the template name before saving a new version to your library.';
-  }
   if (saveTemplateNameInput) {
     saveTemplateNameInput.value = String(window._currentTplName || '').trim();
+  }
+  saveTemplateCorfixGroupsState.pendingName = '';
+  if (saveTemplateGroupPickerInput) {
+    const selectedGroupId = [...saveTemplateCorfixGroupsState.selectedIds][0] || '';
+    const selectedGroup = saveTemplateCorfixGroupsState.groups.find((group) => group.id === selectedGroupId);
+    saveTemplateGroupPickerInput.value = selectedGroup?.name || '';
   }
 
   activeSaveTemplateAction = 'save';
   setSaveTemplateModalBusy(false, 'save');
-  saveTemplateModal.style.display = 'block';
+  saveTemplateModal.hidden = false;
   saveTemplateModal.setAttribute('aria-hidden', 'false');
-  showSharedOverlay(overlay);
+  syncSaveTemplateLauncherState();
 
-  if (typeof enableModalKeys === 'function') {
-    enableModalKeys(saveTemplateModal, saveTemplateConfirmBtn, closeSaveTemplateModal, true);
-  }
-
+  loadSaveTemplateCorfixGroups().catch((error) => {
+    console.error('Could not preload Corfix groups:', error);
+  });
   focusSaveTemplateNameInput();
 }
 
 function closeSaveTemplateModal(force = false) {
   if (!force && isSavingTemplate) return;
-
-  if (typeof disableModalKeys === 'function') {
-    disableModalKeys(saveTemplateModal);
-  }
   if (saveTemplateModal) {
-    saveTemplateModal.style.display = 'none';
+    saveTemplateModal.hidden = true;
     saveTemplateModal.setAttribute('aria-hidden', 'true');
   }
-  if (overlay) {
-    hideSharedOverlay(overlay);
-  }
+  syncSaveTemplateLauncherState();
 }
 
 window.closeSaveTemplateModal = closeSaveTemplateModal;
@@ -7007,12 +7318,22 @@ async function requestTranslatedBuilderJson({ definition, targetLanguage, output
 }
 
 function getSaveTemplateTranslationOptions() {
+  const rawValue = String(saveTemplateTranslationLanguageSelect?.value || '').trim();
+  const normalizedValue = rawValue.toLowerCase();
+  const languageMap = getSaveTemplateTranslationLanguageMap();
+
+  const matchedEntry = Object.entries(languageMap).find(([label, code]) => (
+    String(label || '').trim().toLowerCase() === normalizedValue
+    || String(code || '').trim().toLowerCase() === normalizedValue
+  ));
+  const languageLabel = String(matchedEntry?.[0] || rawValue || '').trim();
+  const targetLanguage = String(matchedEntry?.[1] || '').trim().toLowerCase();
+
   return {
-    targetLanguage: String(saveTemplateTranslationLanguageSelect?.value || 'fr').trim().toLowerCase() || 'fr',
+    enabled: Boolean(targetLanguage),
+    targetLanguage,
     outputMode: 'wrapper',
-    languageLabel: saveTemplateTranslationLanguageSelect?.selectedOptions?.[0]?.textContent?.trim()
-      || String(saveTemplateTranslationLanguageSelect?.value || 'fr').trim().toLowerCase()
-      || 'fr'
+    languageLabel: languageLabel || 'translation'
   };
 }
 
@@ -7020,12 +7341,56 @@ function getTranslationOutputLabel() {
   return 'bilingual JSON';
 }
 
+function getCorfixPublishSuffix(corfix = null) {
+  if (!corfix || typeof corfix !== 'object') return '';
+  const groupCount = Array.isArray(corfix.groupIds) ? corfix.groupIds.length : 0;
+  const assignedGroupCount = Array.isArray(corfix.assignedGroupIds)
+    ? corfix.assignedGroupIds.length
+    : groupCount;
+  const groupSuffix = assignedGroupCount
+    ? ` in ${assignedGroupCount} ${assignedGroupCount === 1 ? 'group' : 'groups'}`
+    : '';
+  if (corfix.ok) {
+    if (corfix.groupAssignment && corfix.groupAssignment.ok === false) {
+      const failedGroupCount = Array.isArray(corfix.groupAssignment.failedGroupIds)
+        ? corfix.groupAssignment.failedGroupIds.length
+        : 0;
+      return corfix.templateId
+        ? ` Published to Corfix (${corfix.templateId})${groupSuffix}, but ${failedGroupCount || 'some'} group assignments failed.`
+        : ` Published to Corfix${groupSuffix}, but some group assignments failed.`;
+    }
+    return corfix.templateId
+      ? ` Published to Corfix (${corfix.templateId})${groupSuffix}.`
+      : ` Published to Corfix${groupSuffix}.`;
+  }
+  if (corfix.skipped) {
+    const reason = String(corfix.reason || '').trim().replace(/\.+$/, '');
+    return corfix.reason
+      ? ` Corfix publish skipped: ${reason}.`
+      : ' Corfix publish skipped.';
+  }
+  if (corfix.error) {
+    const error = String(corfix.error || '').trim().replace(/\.+$/, '');
+    return ` Saved locally, but Corfix publish failed: ${error}.`;
+  }
+  return '';
+}
+
+function getSaveTemplateNotificationKind(clipboardCopyResult, corfix = null) {
+  if (corfix && (!corfix.ok || corfix.groupAssignment?.ok === false)) return 'warn';
+  return clipboardCopyResult.ok ? 'success' : 'warn';
+}
+
 async function saveCurrentTemplate(templateName = window._currentTplName || '', options = {}) {
   const trimmedName = String(templateName || '').trim();
-  const action = options.action === 'translate' ? 'translate' : 'save';
+  const action = 'save';
   if (!trimmedName) {
     showNotification('Template name is required.', 'warn');
     focusSaveTemplateNameInput();
+    return;
+  }
+  const selectedGroupId = await ensureCorfixGroupSelection();
+  if (!selectedGroupId) {
     return;
   }
 
@@ -7040,15 +7405,13 @@ async function saveCurrentTemplate(templateName = window._currentTplName || '', 
   const endpoint = createNewTemplate
     ? '/api/templates'
     : `/api/templates/${encodeURIComponent(window._currentTemplateId)}/versions`;
-  const successLabel = createNewTemplate ? 'Template saved' : 'Template version saved';
-  const clipboardCopyPromise = action === 'save'
-    ? copyCurrentBuilderJsonToClipboard(clean)
-      .then(() => ({ ok: true, kind: 'current' }))
-      .catch((error) => {
-        console.error('Auto copy error:', error);
-        return { ok: false, error, kind: 'current' };
-      })
-    : Promise.resolve({ ok: false, skipped: true, kind: 'translated' });
+  const successLabel = createNewTemplate ? 'Template published locally' : 'Template version published locally';
+  const clipboardCopyPromise = copyCurrentBuilderJsonToClipboard(clean)
+    .then(() => ({ ok: true, kind: 'current' }))
+    .catch((error) => {
+      console.error('Auto copy error:', error);
+      return { ok: false, error, kind: 'current' };
+    });
 
   try {
     activeSaveTemplateAction = action;
@@ -7059,7 +7422,8 @@ async function saveCurrentTemplate(templateName = window._currentTplName || '', 
       body   : JSON.stringify({
         name: trimmedName,
         json: clean,
-        telemetry
+        telemetry,
+        corfixGroupIds: [selectedGroupId]
       })
     });
     const data = await r.json().catch(() => ({}));
@@ -7068,6 +7432,9 @@ async function saveCurrentTemplate(templateName = window._currentTplName || '', 
     window._currentTemplateId = data.templateId || window._currentTemplateId;
     window._currentTemplateVersionId = data.versionId || window._currentTemplateVersionId;
     window._currentTplName = data.name || trimmedName;
+    window._currentCorfixGroupIds = Array.isArray(data?.corfix?.groupIds)
+      ? data.corfix.groupIds
+      : [selectedGroupId];
     try {
       localStorage.setItem('templateLibraryRefreshHint', JSON.stringify({
         templateId: String(data.templateId || window._currentTemplateId || '').trim(),
@@ -7085,8 +7452,8 @@ async function saveCurrentTemplate(templateName = window._currentTplName || '', 
     closeSaveTemplateModal(true);
     let clipboardCopyResult = await clipboardCopyPromise;
 
-    if (action === 'translate') {
-      const translationOptions = getSaveTemplateTranslationOptions();
+    const translationOptions = getSaveTemplateTranslationOptions();
+    if (translationOptions.enabled) {
       try {
         const translated = await requestTranslatedBuilderJson({
           definition: clean,
@@ -7117,48 +7484,50 @@ async function saveCurrentTemplate(templateName = window._currentTplName || '', 
       clearUndoHistory: true
     });
     if (!resetOk) {
+      const corfixSuffix = getCorfixPublishSuffix(data.corfix);
       showNotification(
         data.name
           ? clipboardCopyResult.ok
             ? clipboardCopyResult.kind === 'translated'
-              ? `${successLabel}: ${data.name}. ${clipboardCopyResult.languageLabel} ${clipboardCopyResult.outputLabel} copied to clipboard. Builder reset failed.`
-              : `${successLabel}: ${data.name}. JSON copied to clipboard. Builder reset failed.`
+              ? `${successLabel}: ${data.name}. ${clipboardCopyResult.languageLabel} ${clipboardCopyResult.outputLabel} copied to clipboard.${corfixSuffix} Builder reset failed.`
+              : `${successLabel}: ${data.name}. JSON copied to clipboard.${corfixSuffix} Builder reset failed.`
             : clipboardCopyResult.kind === 'translated'
-              ? `${successLabel}: ${data.name}. Builder reset failed, and the translated payload was not copied.`
-              : `${successLabel}: ${data.name}. Builder reset failed, and JSON was not copied.`
+              ? `${successLabel}: ${data.name}.${corfixSuffix} Builder reset failed, and the translated payload was not copied.`
+              : `${successLabel}: ${data.name}.${corfixSuffix} Builder reset failed, and JSON was not copied.`
           : clipboardCopyResult.ok
             ? clipboardCopyResult.kind === 'translated'
-              ? `${successLabel}. ${clipboardCopyResult.languageLabel} ${clipboardCopyResult.outputLabel} copied to clipboard. Builder reset failed.`
-              : `${successLabel}. JSON copied to clipboard. Builder reset failed.`
+              ? `${successLabel}. ${clipboardCopyResult.languageLabel} ${clipboardCopyResult.outputLabel} copied to clipboard.${corfixSuffix} Builder reset failed.`
+              : `${successLabel}. JSON copied to clipboard.${corfixSuffix} Builder reset failed.`
             : clipboardCopyResult.kind === 'translated'
-              ? `${successLabel}, but builder reset failed and the translated payload was not copied.`
-              : `${successLabel}, but builder reset failed and JSON was not copied.`,
+              ? `${successLabel}.${corfixSuffix} Builder reset failed and the translated payload was not copied.`
+              : `${successLabel}.${corfixSuffix} Builder reset failed and JSON was not copied.`,
         'warn'
       );
       return;
     }
+    const corfixSuffix = getCorfixPublishSuffix(data.corfix);
     showNotification(
       data.name
         ? clipboardCopyResult.ok
           ? clipboardCopyResult.kind === 'translated'
-            ? `${successLabel}: ${data.name}. ${clipboardCopyResult.languageLabel} ${clipboardCopyResult.outputLabel} copied to clipboard.`
-            : `${successLabel}: ${data.name}. JSON copied to clipboard.`
+            ? `${successLabel}: ${data.name}. ${clipboardCopyResult.languageLabel} ${clipboardCopyResult.outputLabel} copied to clipboard.${corfixSuffix}`
+            : `${successLabel}: ${data.name}. JSON copied to clipboard.${corfixSuffix}`
           : clipboardCopyResult.kind === 'translated'
-            ? `${successLabel}: ${data.name}, but the translated payload could not be copied to the clipboard.`
-            : `${successLabel}: ${data.name}, but JSON could not be copied to the clipboard.`
+            ? `${successLabel}: ${data.name}, but the translated payload could not be copied to the clipboard.${corfixSuffix}`
+            : `${successLabel}: ${data.name}, but JSON could not be copied to the clipboard.${corfixSuffix}`
         : clipboardCopyResult.ok
           ? clipboardCopyResult.kind === 'translated'
-            ? `${successLabel}. ${clipboardCopyResult.languageLabel} ${clipboardCopyResult.outputLabel} copied to clipboard.`
-            : `${successLabel}. JSON copied to clipboard.`
+            ? `${successLabel}. ${clipboardCopyResult.languageLabel} ${clipboardCopyResult.outputLabel} copied to clipboard.${corfixSuffix}`
+            : `${successLabel}. JSON copied to clipboard.${corfixSuffix}`
           : clipboardCopyResult.kind === 'translated'
-            ? `${successLabel}, but the translated payload could not be copied to the clipboard.`
-            : `${successLabel}, but JSON could not be copied to the clipboard.`,
-      clipboardCopyResult.ok ? 'success' : 'warn'
+            ? `${successLabel}, but the translated payload could not be copied to the clipboard.${corfixSuffix}`
+            : `${successLabel}, but JSON could not be copied to the clipboard.${corfixSuffix}`,
+      getSaveTemplateNotificationKind(clipboardCopyResult, data.corfix)
     );
   } catch (err) {
     const clipboardCopyResult = await clipboardCopyPromise;
     showNotification(
-      action === 'save' && clipboardCopyResult.ok
+      clipboardCopyResult.ok
         ? `Save failed: ${err.message}. Current JSON was still copied to clipboard.`
         : 'Save failed: ' + err.message,
       'error'
@@ -7171,22 +7540,39 @@ async function saveCurrentTemplate(templateName = window._currentTplName || '', 
 }
 
 if (saveTemplateBtn) {
-  saveTemplateBtn.addEventListener('click', () => {
-    openSaveTemplateModal();
+  saveTemplateBtn.addEventListener('click', async (event) => {
+    event.preventDefault();
+    if (!saveTemplateModal || saveTemplateModal.hidden) {
+      openSaveTemplateModal();
+      return;
+    }
+    await saveCurrentTemplate(saveTemplateNameInput?.value || '', { action: 'save' });
   });
 }
 
-if (saveTemplateConfirmBtn) {
-  saveTemplateConfirmBtn.addEventListener('click', () => {
-    saveCurrentTemplate(saveTemplateNameInput?.value || '', { action: 'save' });
+if (saveTemplateGroupPickerInput) {
+  saveTemplateGroupPickerInput.addEventListener('input', (event) => {
+    const enteredName = String(event.target?.value || '').trim();
+    const matchedGroup = findCorfixGroupByName(enteredName);
+    saveTemplateCorfixGroupsState.selectedIds = matchedGroup ? new Set([matchedGroup.id]) : new Set();
+    saveTemplateCorfixGroupsState.pendingName = matchedGroup ? '' : enteredName;
+    persistSelectedCorfixGroupIds();
+    renderSaveTemplateGroups();
   });
 }
 
-if (saveTemplateTranslateBtn) {
-  saveTemplateTranslateBtn.addEventListener('click', () => {
-    saveCurrentTemplate(saveTemplateNameInput?.value || '', { action: 'translate' });
-  });
-}
+document.addEventListener('click', (event) => {
+  if (!saveTemplateModal || saveTemplateModal.hidden || isSavingTemplate) return;
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+  if (saveTemplateLauncher?.contains(target)) return;
+  closeSaveTemplateModal();
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || !saveTemplateModal || saveTemplateModal.hidden) return;
+  closeSaveTemplateModal();
+});
 
 
 

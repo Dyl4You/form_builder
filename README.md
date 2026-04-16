@@ -20,6 +20,10 @@ npm ci
 ```bash
 OPENAI_API_KEY=your_key_here
 APP_SESSION_SECRET=long-random-secret
+# Optional Corfix publish on save:
+# CORFIX_API_TOKEN=replace-me
+# CORFIX_COMPANY_ID=6926684acbe679718276867d
+# CORFIX_API_BASE_URL=https://api.dev.corfix.com
 # Optional local-dev defaults:
 # OPENAI_MODEL=gpt-4.1-mini
 # DEV_AUTH_USER_ID=dev-user
@@ -65,4 +69,5 @@ npx playwright install chromium
 ## Notes
 
 - Set `ENABLE_FILE_UPLOADS=0`, `ENABLE_AI_DICTATION=0`, or `ENABLE_IMAGE_EXTRACTION=0` to turn off those surfaces for a public deployment.
+- Set `CORFIX_API_TOKEN` and `CORFIX_COMPANY_ID` to publish each saved template or saved version to Corfix automatically.
 - Template cover generation disables itself when OCR text verification support is not installed.

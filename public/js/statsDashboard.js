@@ -28,11 +28,9 @@
   const initialViewMode = getViewModeFromUrl();
 
   const elements = {
-    activeTemplatesCount: $('activeTemplatesCount'),
     sessionLongest: $('sessionLongest'),
     sessionAverage: $('sessionAverage'),
     topComponents: $('topComponents'),
-    resetStatsBtn: $('resetStatsBtn'),
     templateResultsMeta: $('templateResultsMeta'),
     templateFilters: $('templateFilters'),
     searchInput: $('templateSearchInput'),
@@ -47,6 +45,7 @@
     sentinel: $('savedTemplateSentinel'),
     viewModeButtons: Array.from(document.querySelectorAll('.template-view-btn[data-view-mode]'))
   };
+  const hasTemplateLibrary = Boolean(elements.report);
 
   const state = {
     filters: getFiltersFromUrl(),
@@ -67,6 +66,7 @@
   };
 
   function parseSessionState() {
+    if (!hasTemplateLibrary) return null;
     try {
       return JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
     } catch {
@@ -87,6 +87,7 @@
   }
 
   function persistSessionState() {
+    if (!hasTemplateLibrary) return;
     try {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify({
         filters: state.filters,
@@ -103,6 +104,7 @@
   }
 
   function restoreSessionState() {
+    if (!hasTemplateLibrary) return false;
     const cached = parseSessionState();
     if (!cached || typeof cached !== 'object') return false;
 
@@ -148,6 +150,7 @@
   }
 
   function syncFiltersToInputs() {
+    if (!hasTemplateLibrary) return;
     if (elements.searchInput) elements.searchInput.value = state.filters.q;
     if (elements.statusSelect) elements.statusSelect.value = state.filters.status;
     if (elements.savedFromInput) elements.savedFromInput.value = state.filters.savedFrom;
@@ -155,6 +158,7 @@
   }
 
   function syncViewModeButtons() {
+    if (!hasTemplateLibrary) return;
     elements.viewModeButtons.forEach((button) => {
       const isActive = button.getAttribute('data-view-mode') === state.viewMode;
       button.classList.toggle('is-active', isActive);
@@ -166,6 +170,7 @@
   }
 
   function syncStateToUrl() {
+    if (!hasTemplateLibrary) return;
     const params = new URLSearchParams();
     Object.entries(state.filters).forEach(([key, value]) => {
       if (!value) return;
@@ -250,9 +255,6 @@
   }
 
   function renderOverview(overview = {}) {
-    if (elements.activeTemplatesCount) {
-      elements.activeTemplatesCount.textContent = formatNum(overview.activeTemplates || 0);
-    }
     if (elements.sessionLongest) {
       elements.sessionLongest.textContent = formatDuration(overview.sessionTimeStats?.longestMs);
     }
@@ -437,7 +439,7 @@
   }
 
   function updateResultsMeta() {
-    if (!elements.templateResultsMeta) return;
+    if (!hasTemplateLibrary || !elements.templateResultsMeta) return;
     const activeFilterCount = Object.values(state.filters).filter(Boolean).length
       - (state.filters.status === 'active' ? 1 : 0);
     const suffix = activeFilterCount > 0 ? ` with ${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'}` : '';
@@ -445,7 +447,7 @@
   }
 
   function renderTemplateCards() {
-    if (!elements.report) return;
+    if (!hasTemplateLibrary || !elements.report) return;
 
     syncViewModeButtons();
     elements.report.innerHTML = state.items
@@ -552,6 +554,7 @@
   }
 
   async function refreshTemplateSnapshots() {
+    if (!hasTemplateLibrary) return;
     if (state.isLoading) return;
 
     const payload = await fetchJson(buildTemplateQuery(null));
@@ -561,6 +564,7 @@
   }
 
   function persistRefreshHint(templateId) {
+    if (!hasTemplateLibrary) return;
     try {
       localStorage.setItem(REFRESH_HINT_KEY, JSON.stringify({
         templateId: String(templateId || '').trim(),
@@ -572,6 +576,7 @@
   }
 
   function consumeRefreshHint() {
+    if (!hasTemplateLibrary) return null;
     try {
       const raw = localStorage.getItem(REFRESH_HINT_KEY);
       if (!raw) return null;
@@ -588,6 +593,7 @@
   }
 
   function scheduleCoverRefresh() {
+    if (!hasTemplateLibrary) return;
     clearCoverRefreshTimer();
 
     if (state.coverRefreshAttempts >= COVER_REFRESH_MAX_ATTEMPTS) return;
@@ -617,6 +623,7 @@
   }
 
   function buildTemplateQuery(cursor = null) {
+    if (!hasTemplateLibrary) return '';
     const params = new URLSearchParams();
     params.set('limit', String(PAGE_SIZE));
     Object.entries(state.filters).forEach(([key, value]) => {
@@ -628,6 +635,7 @@
   }
 
   async function fetchNextPage({ reset = false, preserveScroll = false, keepVisible = false } = {}) {
+    if (!hasTemplateLibrary) return;
     if (state.isLoading) return;
     if (!state.hasMore && !reset) return;
 
@@ -681,6 +689,7 @@
   }
 
   async function loadTemplateIntoBuilder(card) {
+    if (!hasTemplateLibrary) return;
     const templateId = card.getAttribute('data-template-id');
     const versionId = card.getAttribute('data-version-id');
     const templateName = card.getAttribute('data-template-name') || 'Saved template';
@@ -700,6 +709,7 @@
   }
 
   async function archiveOrRestoreTemplate(button) {
+    if (!hasTemplateLibrary) return;
     const templateId = button.getAttribute('data-template-id');
     const templateName = button.getAttribute('data-template-name') || 'this template';
     const action = button.getAttribute('data-action') || 'archive';
@@ -718,7 +728,7 @@
   }
 
   function attachObserver() {
-    if (!elements.sentinel) return;
+    if (!hasTemplateLibrary || !elements.sentinel) return;
     if (state.observer) state.observer.disconnect();
     state.observer = new IntersectionObserver((entries) => {
       const [entry] = entries;
@@ -735,6 +745,7 @@
   }
 
   function updateFilter(partial, { debounce = false } = {}) {
+    if (!hasTemplateLibrary) return;
     state.filters = sanitizeFilters({
       ...state.filters,
       ...partial
@@ -754,6 +765,7 @@
   }
 
   function setViewMode(viewMode) {
+    if (!hasTemplateLibrary) return;
     const nextViewMode = sanitizeViewMode(viewMode);
     if (nextViewMode === state.viewMode) return;
 
@@ -762,29 +774,7 @@
     renderTemplateCards();
   }
 
-  async function resetStats() {
-    if (!window.confirm('Reset all saved template stats?')) return;
-    if (elements.resetStatsBtn) elements.resetStatsBtn.disabled = true;
-
-    try {
-      await fetchJson('/api/stats/reset', { method: 'POST' });
-      state.items = [];
-      state.nextCursor = null;
-      state.hasMore = true;
-      renderTemplateCards();
-      await Promise.all([loadOverview(), fetchNextPage({ reset: true })]);
-    } finally {
-      if (elements.resetStatsBtn) elements.resetStatsBtn.disabled = false;
-    }
-  }
-
   function bindEvents() {
-    if (elements.resetStatsBtn) {
-      elements.resetStatsBtn.addEventListener('click', () => {
-        resetStats().catch((err) => renderError(err.message || 'Failed to reset stats.'));
-      });
-    }
-
     if (elements.searchInput) {
       elements.searchInput.addEventListener('input', (event) => {
         updateFilter({ q: event.target.value }, { debounce: true });
@@ -859,25 +849,27 @@
     bindEvents();
     attachObserver();
 
-    const restored = restoreSessionState();
-    const refreshHint = consumeRefreshHint();
-    syncFiltersToInputs();
-    syncViewModeButtons();
-    syncStateToUrl();
-
     try {
       await loadOverview();
-      if (!restored || refreshHint) {
-        await fetchNextPage({ reset: true });
-      } else {
-        fetchNextPage({
-          reset: true,
-          preserveScroll: true,
-          keepVisible: true
-        }).catch((err) => renderError(err.message || 'Failed to refresh templates.'));
+      if (hasTemplateLibrary) {
+        const restored = restoreSessionState();
+        const refreshHint = consumeRefreshHint();
+        syncFiltersToInputs();
+        syncViewModeButtons();
+        syncStateToUrl();
+
+        if (!restored || refreshHint) {
+          await fetchNextPage({ reset: true });
+        } else {
+          fetchNextPage({
+            reset: true,
+            preserveScroll: true,
+            keepVisible: true
+          }).catch((err) => renderError(err.message || 'Failed to refresh templates.'));
+        }
       }
     } catch (err) {
-      renderError(err.message || 'Failed to load template library.');
+      renderError(err.message || 'Failed to load builder stats.');
     }
   }
 

@@ -275,7 +275,7 @@ function getLeastUsedTypes(componentTypeTotals, count = 3) {
     .map((entry) => entry.type);
 }
 
-function getTopTypes(componentTypeTotals, count = 5) {
+function getTopTypes(componentTypeTotals, count) {
   return Object.entries(componentTypeTotals || {})
     .map(([type, value]) => ({ type, count: toFiniteNumber(value) }))
     .filter((entry) => entry.count > 0)
@@ -798,7 +798,7 @@ async function getOverview() {
     achievementsUnlocked: profile.achievementsUnlocked || [],
     handcraftedChain: toFiniteNumber(profile.handcraftedChain),
     neglectedRevivalCount: toFiniteNumber(profile.neglectedRevivalCount),
-    topComponents: getTopTypes(profile.componentTypeTotals, 5),
+    topComponents: getTopTypes(profile.componentTypeTotals),
     sessionTimeStats: computeSessionTimeStats(templateEntries),
     leastUsedTypes: getLeastUsedTypes(profile.componentTypeTotals, 3),
     latestTemplate,

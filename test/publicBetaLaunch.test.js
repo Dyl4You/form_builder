@@ -280,6 +280,8 @@ test('free builder mode disables paid AI surfaces but keeps local image extracti
     const builderHtml = await builderPage.text();
 
     assert.equal(builderPage.status, 200);
+    assert.match(builderHtml, /id="saveTemplateBtn"[^>]*>Publish<\/button>/);
+    assert.doesNotMatch(builderHtml, /id="saveTemplateModalTitle"/);
     assert.doesNotMatch(builderHtml, /id="saveTemplateTranslateBtn"/);
     assert.doesNotMatch(builderHtml, /id="aiAssistBtn"/);
     assert.doesNotMatch(builderHtml, /\/js\/aiChat\.js/);

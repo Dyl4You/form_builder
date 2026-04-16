@@ -37,6 +37,9 @@ function loadActionButtonsHTML() {
     hasEnabledOptionFlags: () => false,
     isDateTimeBuilderComponent: () => false,
     getFileUploadComponentMode: () => '',
+    isBuilderActionsEnabled: component =>
+      !!component?._actionsDriverKey
+      || !!component?.components?.some(child => child?._actionsDriverKey),
     actionButtonsHTML: null
   };
 
@@ -71,4 +74,24 @@ test('regular sections keep wrap and delete actions available', () => {
   assert.match(html, /data-action="conditional"/);
   assert.match(html, /data-action="wrap2"/);
   assert.match(html, /data-action="delete"/);
+});
+
+test('field groups show the actions toggle as on when grouped radios own actions', () => {
+  const actionButtonsHTML = loadActionButtonsHTML();
+  const html = actionButtonsHTML(true, {
+    type: 'fieldset',
+    customType: 'componentGroup',
+    key: 'questionGroup',
+    validate: {},
+    components: [
+      {
+        type: 'radio',
+        builderComponentGroupManaged: true,
+        _actionsDriverKey: 'actionsGroup1'
+      }
+    ]
+  });
+
+  assert.match(html, /data-tog="actions"/);
+  assert.match(html, /toggle-btn on/);
 });

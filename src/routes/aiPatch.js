@@ -3,6 +3,7 @@
 const router  = require('express').Router();
 const OpenAI  = require('openai').OpenAI;
 const Ajv     = require('ajv');
+const { getPublicAiFeatures } = require('../config/runtimeConfig');
 const { normalizeGeneratedComponents } = require('../utils/aiExtractionConfig');
 const { createUserQuotaMiddleware } = require('../security/requestSecurity');
 const {
@@ -12,7 +13,9 @@ const {
 } = require('../utils/aiBlueprints');
 
 // ❶ OpenAI client (assumes OPENAI_API_KEY is set)
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 const MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
 
 // ❷ AJV setup – point at whatever Form.io component schema you prefer
@@ -22,6 +25,14 @@ const validateComponent     = ajv.compile(formioComponentSchema);
 
 /* ───────────── PATCH generator ───────────── */
 router.post('/api/ai/patch', createUserQuotaMiddleware('patch'), async (req, res) => {
+  if (!getPublicAiFeatures().assistant) {
+    return res.status(410).json({ error: 'AI Assist is disabled for this deployment.' });
+  }
+
+  if (!openai) {
+    return res.status(503).json({ error: 'OPENAI_API_KEY is required for AI Assist.' });
+  }
+
   try {
     const { prompt, form, target } = req.body;
     const trimmedPrompt = String(prompt || '').trim();

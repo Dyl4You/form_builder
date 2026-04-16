@@ -1,3 +1,5 @@
+const fs = require('fs');
+
 function trimString(value) {
   return String(value || '').trim();
 }
@@ -28,7 +30,25 @@ function parseAdminEmails(env = process.env) {
 }
 
 function parseAllowedEmails(env = process.env) {
-  return parseEmailSet(env.ALLOWED_EMAILS);
+  const allowedEmails = parseEmailSet(env.ALLOWED_EMAILS);
+  const filePath = trimString(env.ALLOWED_EMAILS_FILE);
+
+  if (!filePath) return allowedEmails;
+
+  try {
+    const fileContents = fs.readFileSync(filePath, 'utf8');
+    String(fileContents || '')
+      .split(/\r?\n/)
+      .map((line) => line.replace(/#.*/, '').trim().toLowerCase())
+      .filter(Boolean)
+      .forEach((email) => allowedEmails.add(email));
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      console.warn(`[runtime-config] failed reading ALLOWED_EMAILS_FILE ${filePath}: ${error.message}`);
+    }
+  }
+
+  return allowedEmails;
 }
 
 function isEmailAllowed(email = '', env = process.env) {

@@ -46,18 +46,16 @@ function createApp() {
   app.use(express.urlencoded({ extended: true, limit: requestBodyLimit }));
 
   app.use('/', require('./routes/auth'));
-  app.use(['/design-system', '/formbuilder', '/stats', '/guide'], requirePageAuth);
+  app.use(['/design-system', '/formbuilder', '/stats'], requirePageAuth);
   app.use('/api', apiRateLimiter, requireApiAuth);
   app.use('/api/ai', aiRateLimiter);
 
   /* ───────────── 3 ▸  ROUTES  ─────────────
      ‣ formBuilder      ─ general builder pages & helpers
-     ‣ guide            ─ builder setup and component guide
      ‣ aiUpload         ─ disabled public-beta upload surface
      ‣ ai               ─ POST /api/ai/generate (prompt → JSON components)
      ‣ aiDictate        ─ disabled public-beta dictation surface              */
   app.use('/', require('./routes/formBuilder'));
-  app.use('/', require('./routes/guide'));
   app.use('/', require('./routes/aiUpload'));
   app.use('/', require('./routes/ai'));
   app.use('/', require('./routes/aiDictate'));

@@ -847,9 +847,75 @@ function makeLocallyUniquePreservedKey(seed = "", registry = new Set(), fallback
   return nextKey;
 }
 
+function registerKeyAlias(aliasMap, alias = "", targetKey = "") {
+  const normalizedAlias = String(alias || "").trim();
+  const normalizedTarget = String(targetKey || "").trim();
+  if (!normalizedAlias || !normalizedTarget) return;
+
+  if (aliasMap.has(normalizedAlias) && aliasMap.get(normalizedAlias) !== normalizedTarget) {
+    aliasMap.set(normalizedAlias, null);
+    return;
+  }
+
+  aliasMap.set(normalizedAlias, normalizedTarget);
+}
+
+function registerComponentKeyAliases(aliasMap, options = {}) {
+  const originalKey = String(options.originalKey || "").trim();
+  const nextKey = String(options.nextKey || "").trim();
+  const label = String(options.label || "").trim();
+  if (!nextKey) return;
+
+  const aliases = new Set([
+    nextKey,
+    normalizeLowerCamelCase(nextKey, "key")
+  ]);
+
+  if (originalKey) {
+    aliases.add(originalKey);
+    aliases.add(normalizeLowerCamelCase(originalKey, "key"));
+  }
+
+  if (label) {
+    aliases.add(label);
+    aliases.add(normalizeLowerCamelCase(label, "key"));
+  }
+
+  aliases.forEach(alias => registerKeyAlias(aliasMap, alias, nextKey));
+}
+
+function resolveComponentReferenceKey(rawKey = "", keyMap = {}, aliasMap = new Map(), fallback = "key") {
+  const directKey = String(rawKey || "").trim();
+  if (!directKey) {
+    return normalizeLowerCamelCase(directKey, fallback);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(keyMap, directKey)) {
+    return keyMap[directKey];
+  }
+
+  const directAlias = aliasMap.get(directKey);
+  if (typeof directAlias === "string" && directAlias) {
+    return directAlias;
+  }
+
+  const normalizedKey = normalizeLowerCamelCase(directKey, fallback);
+  if (Object.prototype.hasOwnProperty.call(keyMap, normalizedKey)) {
+    return keyMap[normalizedKey];
+  }
+
+  const normalizedAlias = aliasMap.get(normalizedKey);
+  if (typeof normalizedAlias === "string" && normalizedAlias) {
+    return normalizedAlias;
+  }
+
+  return normalizedKey;
+}
+
 function sanitizeComponentSchema(components = []) {
   const usedKeys = new Set();
   const keyMap = {};
+  const keyAliasMap = new Map();
   const valueMaps = {};
 
   const walk = (arr, context = {}) => {
@@ -891,6 +957,14 @@ function sanitizeComponentSchema(components = []) {
       }
 
       component.key = nextKey;
+
+      if (!isTaskScoped) {
+        registerComponentKeyAliases(keyAliasMap, {
+          originalKey,
+          nextKey,
+          label: component.label
+        });
+      }
 
       if (component.type === "editgrid") {
         delete component.editGridRowLayout;
@@ -937,7 +1011,7 @@ function sanitizeComponentSchema(components = []) {
 
       if (!isTaskScoped && component.conditional?.when) {
         const originalWhen = String(component.conditional.when);
-        const nextWhen = keyMap[originalWhen] || normalizeLowerCamelCase(originalWhen, "key");
+        const nextWhen = resolveComponentReferenceKey(originalWhen, keyMap, keyAliasMap, "key");
         component.conditional.when = nextWhen;
 
         const valueMap = valueMaps[nextWhen];
@@ -955,8 +1029,12 @@ function sanitizeComponentSchema(components = []) {
 
       if (!isTaskScoped && component._actionsDriverKey) {
         const originalDriverKey = String(component._actionsDriverKey);
-        component._actionsDriverKey = keyMap[originalDriverKey]
-          || normalizeLowerCamelCase(originalDriverKey, "actionsGroup");
+        component._actionsDriverKey = resolveComponentReferenceKey(
+          originalDriverKey,
+          keyMap,
+          keyAliasMap,
+          "actionsGroup"
+        );
       }
 
       const childContext = component.type === "tasks"

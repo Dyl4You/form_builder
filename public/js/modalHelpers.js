@@ -80,7 +80,7 @@ function destroyCKEditor(elId) {
 }
 
 const DISCLAIMER_PHOTO_HINT = "Insert a photo from your device into the disclaimer.";
-const IMAGE_EXTRACTION_DISABLED_HINT = "Image text extraction is disabled for the public beta.";
+const IMAGE_EXTRACTION_DISABLED_HINT = "";
 
 function setDisclaimerPhotoStatus(message = DISCLAIMER_PHOTO_HINT) {
   const statusEl = document.getElementById("disclaimerPhotoStatus");
@@ -385,19 +385,55 @@ const OPTION_IMAGE_DROP_TARGETS = [
   {
     textareaId: "surveyQuestionsInputUnified",
     statusId: "surveyQuestionsImageStatus",
-    kind: "questions",
+    kind: "survey",
     itemLabel: "question",
     idleMessage: "Drag a screenshot here to extract questions.",
     readyMessage: "Drop the image to extract survey questions.",
     emptyMessage: "No survey questions were found in that image."
+  },
+  {
+    textareaId: "componentGroupItemsInputUnified",
+    statusId: "componentGroupItemsImageStatus",
+    kind: textarea => textarea?.dataset.imageExtractionKind || "survey",
+    itemLabel: textarea => textarea?.dataset.imageExtractionItemLabel || "survey label",
+    idleMessage: textarea => textarea?.dataset.imageExtractionIdleMessage || "Drag a screenshot here to extract survey labels.",
+    readyMessage: textarea => textarea?.dataset.imageExtractionReadyMessage || "Drop the image to extract survey labels.",
+    emptyMessage: textarea => textarea?.dataset.imageExtractionEmptyMessage || "No survey labels were found in that image."
   }
 ];
 
 const LINE_LIST_EDITOR_TARGETS = [
   { editorId: "bulkOptionsInputUnified" },
   { editorId: "surveyQuestionsInputUnified" },
-  { editorId: "surveyOptionsInputUnified" }
+  { editorId: "surveyOptionsInputUnified" },
+  { editorId: "componentGroupItemsInputUnified" }
 ];
+
+const OCR_CHECKLIST_RESPONSE_PRESETS = Object.freeze({
+  yesNoNa: Object.freeze(["Yes", "No", "N/A"]),
+  passFailNa: Object.freeze(["Pass", "Fail", "N/A"]),
+  safeRiskNa: Object.freeze(["Safe", "At Risk", "N/A"])
+});
+
+const COMPONENT_GROUP_RESPONSE_NOISE_PATTERNS = Object.freeze([
+  /\bexplain\s+in\s+notes?\b/ig,
+  /\bcomments?\b/ig,
+  /\bnotes?\b/ig,
+  /\bnot\s*app(?:licable)?\b/ig,
+  /\bn\s*[\/\\-]?\s*a\b/ig,
+  /\bna\b/ig,
+  /\bpass\b/ig,
+  /\bfail\b/ig,
+  /\bsafe\b/ig,
+  /\bat\s*risk\b/ig,
+  /\byes\b/ig,
+  /\bno\b/ig,
+  /\b[a-z]{0,2}yes[a-z0-9]{0,3}\b/ig,
+  /\b[a-z]{0,2}no[a-z0-9]{0,3}\b/ig,
+  /\b[a-z]{0,2}pass[a-z0-9]{0,3}\b/ig,
+  /\b[a-z]{0,2}fail[a-z0-9]{0,3}\b/ig,
+  /\b[a-z]{0,2}not[a-z0-9]{0,6}\s*app[a-z0-9]{0,10}\b/ig
+]);
 
 function getLineListEditorItems(editor) {
   if (!editor) return [];
@@ -698,11 +734,18 @@ function refreshLineListEditors() {
   });
 }
 
-function setOptionImageDropStatus(targetConfig, statusEl, message = targetConfig?.idleMessage || "", state = "idle") {
+function setOptionImageDropStatus(targetConfig, statusEl, message = "", state = "idle") {
   if (!statusEl) return;
 
-  statusEl.textContent = message;
+  const suppressFallback = message === null;
+  const fallbackMessage = typeof targetConfig?.idleMessage === "function"
+    ? targetConfig.idleMessage(document.getElementById(targetConfig?.textareaId || ""), targetConfig)
+    : targetConfig?.idleMessage;
+
+  const nextMessage = suppressFallback ? "" : (message || fallbackMessage || "");
+  statusEl.textContent = nextMessage;
   statusEl.dataset.state = state;
+  statusEl.hidden = !nextMessage;
 }
 
 function resetOptionImageDropTargetState(targetConfig) {
@@ -715,7 +758,11 @@ function resetOptionImageDropTargetState(targetConfig) {
   textarea?.removeAttribute("aria-busy");
   if (textarea) delete textarea.dataset.optionImageBusy;
 
-  setOptionImageDropStatus(targetConfig, statusEl);
+  setOptionImageDropStatus(
+    targetConfig,
+    statusEl,
+    IMAGE_EXTRACTION_ENABLED ? "" : null
+  );
 }
 
 function isImageLikeFile(file) {
@@ -750,6 +797,280 @@ function splitOptionLines(value) {
     .filter(Boolean);
 }
 
+function cleanupComponentGroupOcrLabelCandidate(line) {
+  return String(line || "")
+    .replace(/^\s*\d+\s*[.)-]?\s*/g, "")
+    .replace(/[\[\]{}()<>]/g, " ")
+    .replace(/[|¦]/g, " ")
+    .replace(/[\\]+/g, " ")
+    .replace(/\s*\/\s*/g, "/")
+    .replace(/[_\-–—]{2,}/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, "")
+    .trim();
+}
+
+function stripComponentGroupResponseNoise(text) {
+  let stripped = String(text || "");
+
+  COMPONENT_GROUP_RESPONSE_NOISE_PATTERNS.forEach(pattern => {
+    stripped = stripped.replace(pattern, " ");
+  });
+
+  return cleanupComponentGroupOcrLabelCandidate(stripped);
+}
+
+function countComponentGroupResponseNoiseMatches(text) {
+  const source = String(text || "");
+  let count = 0;
+
+  COMPONENT_GROUP_RESPONSE_NOISE_PATTERNS.forEach(pattern => {
+    const globalPattern = pattern.global
+      ? pattern
+      : new RegExp(pattern.source, `${pattern.flags || ""}g`);
+    const matches = source.match(globalPattern);
+    if (matches?.length) {
+      count += matches.length;
+    }
+  });
+
+  return count;
+}
+
+function normalizeComponentGroupOcrLabelLine(line) {
+  const cleaned = cleanupComponentGroupOcrLabelCandidate(line);
+  if (!cleaned) return "";
+
+  const rawQuestionIndex = String(line || "").indexOf("?");
+  if (rawQuestionIndex !== -1) {
+    const questionPart = String(line || "")
+      .slice(0, rawQuestionIndex + 1)
+      .replace(/^\s*\d+\s*[.)-]?\s*/g, "")
+      .replace(/[\[\]{}()<>]/g, " ")
+      .replace(/[|¦]/g, " ")
+      .replace(/[\\]+/g, " ")
+      .replace(/\s*\/\s*/g, "/")
+      .replace(/[_\-–—]{2,}/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .replace(/\s+\?/g, "?")
+      .replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9/?]+$/g, "")
+      .trim();
+    if (questionPart) {
+      return questionPart;
+    }
+  }
+
+  const stripped = stripComponentGroupResponseNoise(cleaned);
+  const responseNoiseCount = countComponentGroupResponseNoiseMatches(cleaned);
+
+  if (!stripped) {
+    return "";
+  }
+
+  if (responseNoiseCount >= 2) {
+    return stripped;
+  }
+
+  return cleaned;
+}
+
+function isLikelyComponentGroupOcrNoise(line) {
+  const cleaned = cleanupComponentGroupOcrLabelCandidate(line);
+  if (!cleaned) return true;
+
+  const words = cleaned.match(/[A-Za-z0-9]+/g) || [];
+  if (!words.length) return true;
+
+  const allShort = words.every(word => word.length <= 2);
+  const allSingle = words.every(word => word.length === 1);
+  const totalChars = words.reduce((sum, word) => sum + word.length, 0);
+  const isUpperish = cleaned === cleaned.toUpperCase();
+
+  if (words.length === 1 && words[0].length === 1) return true;
+  if (words.length === 2 && allSingle) return true;
+  if (words.length >= 3 && allShort) return true;
+  if (words.length === 2 && allShort && isUpperish && totalChars <= 4 && !/\d/.test(cleaned)) return true;
+
+  return false;
+}
+
+function filterComponentGroupOcrLines(lines = []) {
+  return (lines || [])
+    .map(line => normalizeComponentGroupOcrLabelLine(line))
+    .filter(Boolean)
+    .filter(line => stripComponentGroupResponseNoise(line) !== "")
+    .filter(line => !isLikelyComponentGroupOcrNoise(line));
+}
+
+function normalizeChecklistPresetToken(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function extractChecklistPresetFromLines(lines = [], presetMap = OCR_CHECKLIST_RESPONSE_PRESETS) {
+  function escapeRegExp(value) {
+    return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function buildChecklistLabelMatcher(label) {
+    const normalizedLabel = String(label || "").trim().toLowerCase();
+    const compactToken = normalizeChecklistPresetToken(normalizedLabel);
+
+    if (!compactToken) return null;
+
+    if (compactToken === "na") {
+      return {
+        token: compactToken,
+        regex: /(^|[^a-z0-9])(?:n\s*[\/\\-]?\s*a|na)(?=$|[^a-z0-9])/i,
+        replaceRegex: /(^|[^a-z0-9])(?:n\s*[\/\\-]?\s*a|na)(?=$|[^a-z0-9])/ig
+      };
+    }
+
+    const parts = normalizedLabel.match(/[a-z0-9]+/g) || [compactToken];
+    const tokenPattern = parts.map(part => escapeRegExp(part)).join("\\s*");
+    return {
+      token: compactToken,
+      regex: new RegExp(`(^|[^a-z0-9])${tokenPattern}(?=$|[^a-z0-9])`, "i"),
+      replaceRegex: new RegExp(`(^|[^a-z0-9])${tokenPattern}(?=$|[^a-z0-9])`, "ig")
+    };
+  }
+
+  function cleanupChecklistLabelRemainder(line) {
+    return String(line || "")
+      .replace(/^\s*\d+\s*[.)-]?\s*/g, "")
+      .replace(/[\[\]{}()<>]/g, " ")
+      .replace(/[|¦]/g, " ")
+      .replace(/\b[o0]\b/gi, " ")
+      .replace(/[\/\\]+/g, " ")
+      .replace(/[_\-–—]{2,}/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, "")
+      .trim();
+  }
+
+  function looksMeaningfulChecklistLabel(line) {
+    const cleaned = cleanupChecklistLabelRemainder(line);
+    if (!cleaned) return false;
+
+    const words = cleaned.match(/[A-Za-z0-9]+/g) || [];
+    const longestWord = words.reduce((max, word) => Math.max(max, word.length), 0);
+    return longestWord >= 3 || words.length >= 2;
+  }
+
+  function looksLikeChecklistOcrJunk(line) {
+    const cleaned = cleanupChecklistLabelRemainder(line);
+    if (!cleaned) return true;
+
+    const words = cleaned.match(/[A-Za-z0-9]+/g) || [];
+    if (words.length < 3) return false;
+
+    return words.every(word => word.length <= 2);
+  }
+
+  const entries = (lines || [])
+    .map(line => String(line || "").trim())
+    .filter(Boolean)
+    .map(line => ({
+      line,
+      token: normalizeChecklistPresetToken(line),
+      originalLine: line
+    }));
+
+  let bestMatch = null;
+
+  Object.entries(presetMap || {}).forEach(([presetKey, labels]) => {
+    const normalizedLabels = (labels || []).map(label => String(label || "").trim()).filter(Boolean);
+    if (!normalizedLabels.length) return;
+
+    const labelMatchers = normalizedLabels
+      .map(buildChecklistLabelMatcher)
+      .filter(Boolean);
+    const matchedTokens = new Set();
+    const filteredLines = [];
+    let responseLikeLines = 0;
+    let transformedLines = 0;
+
+    entries.forEach(entry => {
+      const exactTokenMatch = labelMatchers.find(matcher => matcher.token === entry.token) || null;
+      const activeMatchers = exactTokenMatch
+        ? [exactTokenMatch]
+        : labelMatchers.filter(matcher => matcher.regex.test(entry.line));
+
+      if (!activeMatchers.length) {
+        if (looksLikeChecklistOcrJunk(entry.line)) {
+          responseLikeLines += 1;
+          return;
+        }
+        filteredLines.push(entry.line);
+        return;
+      }
+
+      activeMatchers.forEach(matcher => matchedTokens.add(matcher.token));
+
+      let cleanedLine = entry.originalLine;
+      activeMatchers.forEach(matcher => {
+        cleanedLine = cleanedLine.replace(matcher.replaceRegex, " ");
+      });
+      cleanedLine = cleanupChecklistLabelRemainder(cleanedLine);
+
+      const isExactResponseLine = Boolean(exactTokenMatch);
+      const isResponseOnlyNoise = activeMatchers.length >= 2 && !looksMeaningfulChecklistLabel(cleanedLine);
+
+      if (isExactResponseLine || isResponseOnlyNoise || looksLikeChecklistOcrJunk(cleanedLine) || !cleanedLine) {
+        responseLikeLines += 1;
+        return;
+      }
+
+      if (cleanedLine !== entry.line) {
+        transformedLines += 1;
+      }
+
+      filteredLines.push(cleanedLine);
+    });
+
+    if (matchedTokens.size < 2 || !filteredLines.length || (responseLikeLines === 0 && transformedLines === 0)) {
+      return;
+    }
+
+    const candidate = {
+      presetKey,
+      labels: normalizedLabels,
+      filteredLines,
+      matchedCount: matchedTokens.size,
+      responseLikeLines,
+      transformedLines
+    };
+
+    if (
+      !bestMatch
+      || candidate.matchedCount > bestMatch.matchedCount
+      || (
+        candidate.matchedCount === bestMatch.matchedCount
+        && candidate.responseLikeLines + candidate.transformedLines > bestMatch.responseLikeLines + bestMatch.transformedLines
+      )
+    ) {
+      bestMatch = candidate;
+    }
+  });
+
+  return bestMatch || {
+    presetKey: null,
+    labels: [],
+    filteredLines: entries.map(entry => entry.line),
+    matchedCount: 0
+  };
+}
+
+function resolveOptionImageDropConfigValue(targetConfig, fieldName, textarea = null) {
+  const rawValue = targetConfig?.[fieldName];
+  if (typeof rawValue === "function") {
+    return rawValue(textarea || document.getElementById(targetConfig?.textareaId || ""), targetConfig);
+  }
+  return rawValue;
+}
+
 function mergeOptionLines(existingLines, incomingLines) {
   const seen = new Set();
   const merged = [];
@@ -769,7 +1090,7 @@ function mergeOptionLines(existingLines, incomingLines) {
 }
 
 function getDropTargetItemLabel(targetConfig, count = 1) {
-  const singular = String(targetConfig?.itemLabel || "line").trim() || "line";
+  const singular = String(resolveOptionImageDropConfigValue(targetConfig, "itemLabel") || "line").trim() || "line";
   if (count === 1) return singular;
   return singular.endsWith("s") ? singular : `${singular}s`;
 }
@@ -792,7 +1113,7 @@ async function populateOptionsFromDroppedImage(targetConfig, file) {
   try {
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("kind", targetConfig?.kind || "options");
+    formData.append("kind", resolveOptionImageDropConfigValue(targetConfig, "kind", textarea) || "options");
 
     const response = await fetch("/api/ai/options-from-image", {
       method: "POST",
@@ -804,13 +1125,22 @@ async function populateOptionsFromDroppedImage(targetConfig, file) {
       throw new Error(payload?.error || "Unable to read text from image.");
     }
 
-    const options = Array.isArray(payload?.options)
+    const extractedOptions = Array.isArray(payload?.options)
       ? payload.options.map(option => String(option || "").trim()).filter(Boolean)
       : [];
     const source = payload?.source || "ocr";
+    const sanitizedOptions = textarea.id === "componentGroupItemsInputUnified"
+      ? filterComponentGroupOcrLines(extractedOptions)
+      : extractedOptions;
+    const checklistPreset = textarea.id === "componentGroupItemsInputUnified"
+      ? extractChecklistPresetFromLines(sanitizedOptions)
+      : null;
+    const options = checklistPreset?.filteredLines?.length
+      ? filterComponentGroupOcrLines(checklistPreset.filteredLines)
+      : sanitizedOptions;
 
     if (!options.length) {
-      throw new Error(targetConfig?.emptyMessage || "No lines were found in that image.");
+      throw new Error(resolveOptionImageDropConfigValue(targetConfig, "emptyMessage", textarea) || "No lines were found in that image.");
     }
 
     const existingLines = splitOptionLines(textarea.value);
@@ -821,11 +1151,23 @@ async function populateOptionsFromDroppedImage(targetConfig, file) {
     targetConfig.resetPresets?.();
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
 
+    if (checklistPreset?.labels?.length) {
+      textarea.dispatchEvent(new CustomEvent("builder:component-group-preset", {
+        detail: {
+          labels: checklistPreset.labels,
+          presetKey: checklistPreset.presetKey
+        }
+      }));
+    }
+
     if (addedCount === 0 && existingLines.length) {
+      const presetSuffix = checklistPreset?.labels?.length
+        ? ` Auto-selected ${checklistPreset.labels.join(" / ")}.`
+        : "";
       setOptionImageDropStatus(
         targetConfig,
         statusEl,
-        `Those ${getDropTargetItemLabel(targetConfig, 2)} are already in the text area.`,
+        `Those ${getDropTargetItemLabel(targetConfig, 2)} are already in the text area.${presetSuffix}`,
         "success"
       );
       window.showNotification?.(`Those ${getDropTargetItemLabel(targetConfig, 2)} are already in the list.`, "info", 1800);
@@ -835,8 +1177,11 @@ async function populateOptionsFromDroppedImage(targetConfig, file) {
     const noun = getDropTargetItemLabel(targetConfig, addedCount === 0 ? options.length : addedCount);
     const action = existingLines.length ? `Added ${addedCount} new ${noun}.` : `Loaded ${options.length} ${noun}.`;
     const sourceLabel = source === "vision" ? "image analysis" : "OCR";
+    const presetSuffix = checklistPreset?.labels?.length
+      ? ` Auto-selected ${checklistPreset.labels.join(" / ")}.`
+      : "";
 
-    setOptionImageDropStatus(targetConfig, statusEl, `${action} Source: ${sourceLabel}.`, "success");
+    setOptionImageDropStatus(targetConfig, statusEl, `${action}${presetSuffix} Source: ${sourceLabel}.`, "success");
     window.showNotification?.(`Extracted ${options.length} ${noun} from the dropped image.`, "success", 2200);
   } catch (err) {
     const message = err?.message || "Unable to read text from that image.";
@@ -856,7 +1201,7 @@ function bindOptionImageDropTarget(targetConfig) {
 
   if (!IMAGE_EXTRACTION_ENABLED) {
     textarea.classList.remove("option-image-drop-target");
-    setOptionImageDropStatus(targetConfig, statusEl, IMAGE_EXTRACTION_DISABLED_HINT, "idle");
+    setOptionImageDropStatus(targetConfig, statusEl, null, "idle");
     return;
   }
 
@@ -876,7 +1221,12 @@ function bindOptionImageDropTarget(targetConfig) {
     if (event.dataTransfer) {
       event.dataTransfer.dropEffect = "copy";
     }
-    setOptionImageDropStatus(targetConfig, statusEl, targetConfig?.readyMessage, "ready");
+    setOptionImageDropStatus(
+      targetConfig,
+      statusEl,
+      resolveOptionImageDropConfigValue(targetConfig, "readyMessage", textarea),
+      "ready"
+    );
     return true;
   };
 
@@ -904,7 +1254,12 @@ function bindOptionImageDropTarget(targetConfig) {
       event.dataTransfer.dropEffect = "copy";
     }
     textarea.classList.add("is-drop-active");
-    setOptionImageDropStatus(targetConfig, statusEl, targetConfig?.readyMessage, "ready");
+    setOptionImageDropStatus(
+      targetConfig,
+      statusEl,
+      resolveOptionImageDropConfigValue(targetConfig, "readyMessage", textarea),
+      "ready"
+    );
   });
   textarea.addEventListener("dragleave", deactivate);
   textarea.addEventListener("drop", event => {
@@ -2738,9 +3093,11 @@ presetRow.addEventListener('click', e => {
 
 const componentGroupItemsInput = document.getElementById("componentGroupItemsInputUnified");
 const componentGroupItemsLabel = document.getElementById("componentGroupItemsLabel");
+const componentGroupItemsImageStatus = document.getElementById("componentGroupItemsImageStatus");
 const componentGroupPresetRow = document.getElementById("componentGroupPresetRow");
 const componentGroupModeSurveyBtn = document.getElementById("componentGroupModeSurvey");
 const componentGroupModeRadioBtn = document.getElementById("componentGroupModeRadio");
+const componentGroupImageDropTargetConfig = OPTION_IMAGE_DROP_TARGETS.find(target => target.textareaId === "componentGroupItemsInputUnified");
 let selectedComponentGroupMode = initialComponentGroupMode === "radio" ? "radio" : "survey";
 let selectedComponentGroupResponseLabels =
   Array.isArray(initialComponentGroupResponses) && initialComponentGroupResponses.length
@@ -2748,6 +3105,28 @@ let selectedComponentGroupResponseLabels =
         .map(option => normalizeOptionLabel(option?.label || option))
         .filter(Boolean)
     : ["Yes", "No", "N/A"];
+
+function applyComponentGroupPresetSelection(labels = []) {
+  const normalizedLabels = (labels || [])
+    .map(option => normalizeOptionLabel(option))
+    .filter(Boolean);
+
+  if (!normalizedLabels.length) return;
+
+  selectedComponentGroupResponseLabels = normalizedLabels;
+
+  componentGroupPresetRow?.querySelectorAll(".preset-card").forEach(card => {
+    const cardLabels = card.dataset.options
+      .split(",")
+      .map(option => normalizeOptionLabel(option))
+      .filter(Boolean);
+
+    const matchesCard = cardLabels.length === normalizedLabels.length
+      && cardLabels.every((label, index) => quickToken(label) === quickToken(normalizedLabels[index]));
+
+    card.classList.toggle("selected", matchesCard);
+  });
+}
 
 function setComponentGroupMode(nextMode) {
   selectedComponentGroupMode = nextMode === "radio" ? "radio" : "survey";
@@ -2760,14 +3139,55 @@ function setComponentGroupMode(nextMode) {
         ? "Survey Labels"
         : "Radio Labels";
   }
+
+  if (componentGroupItemsInput) {
+    const isSurveyMode = selectedComponentGroupMode === "survey";
+    componentGroupItemsInput.dataset.imageExtractionKind = "componentGroup";
+    componentGroupItemsInput.dataset.imageExtractionItemLabel = isSurveyMode ? "survey label" : "radio label";
+    componentGroupItemsInput.dataset.imageExtractionIdleMessage = isSurveyMode
+      ? "Drag a screenshot here to extract survey labels."
+      : "Drag a screenshot here to extract radio labels.";
+    componentGroupItemsInput.dataset.imageExtractionReadyMessage = isSurveyMode
+      ? "Drop the image to extract survey labels."
+      : "Drop the image to extract radio labels.";
+    componentGroupItemsInput.dataset.imageExtractionEmptyMessage = isSurveyMode
+      ? "No survey labels were found in that image."
+      : "No radio labels were found in that image.";
+  }
+
+  if (componentGroupItemsImageStatus && componentGroupItemsInput?.dataset.optionImageBusy !== "true") {
+    setOptionImageDropStatus(
+      componentGroupImageDropTargetConfig,
+      componentGroupItemsImageStatus,
+      IMAGE_EXTRACTION_ENABLED ? "" : null,
+      "idle"
+    );
+  }
+
+  refreshComponentGroupActionsToggleState();
 }
 
 if (type === "componentGroup") {
   if (componentGroupItemsInput) {
     componentGroupItemsInput.value = (initialComponentGroupItems || []).join("\n");
+    if (componentGroupItemsInput._componentGroupPresetHandler) {
+      componentGroupItemsInput.removeEventListener(
+        "builder:component-group-preset",
+        componentGroupItemsInput._componentGroupPresetHandler
+      );
+    }
   }
 
   setComponentGroupMode(selectedComponentGroupMode);
+  resetOptionImageDropTargetState(componentGroupImageDropTargetConfig);
+
+  if (componentGroupItemsInput) {
+    const handleComponentGroupPreset = event => {
+      applyComponentGroupPresetSelection(event?.detail?.labels || []);
+    };
+    componentGroupItemsInput._componentGroupPresetHandler = handleComponentGroupPreset;
+    componentGroupItemsInput.addEventListener("builder:component-group-preset", handleComponentGroupPreset);
+  }
 
   componentGroupModeSurveyBtn.onclick = () => setComponentGroupMode("survey");
   componentGroupModeRadioBtn.onclick = () => setComponentGroupMode("radio");
@@ -2779,28 +3199,28 @@ if (type === "componentGroup") {
     const card = event.target.closest(".preset-card");
     if (!card) return;
 
-    componentGroupPresetRow.querySelectorAll(".preset-card")
-      .forEach(presetCard => presetCard.classList.remove("selected"));
-    card.classList.add("selected");
-    selectedComponentGroupResponseLabels = card.dataset.options
-      .split(",")
-      .map(option => normalizeOptionLabel(option))
-      .filter(Boolean);
+    applyComponentGroupPresetSelection(
+      card.dataset.options
+        .split(",")
+        .map(option => normalizeOptionLabel(option))
+        .filter(Boolean)
+    );
   };
 
   const initialPresetKey = detectQuickPreset(selectedComponentGroupResponseLabels);
   if (initialPresetKey) {
-    const presetSignature = quickToken(
-      QUICK_PRESETS[initialPresetKey].radio.map(option => option.label).join("|")
+    applyComponentGroupPresetSelection(
+      QUICK_PRESETS[initialPresetKey].radio.map(option => option.label)
     );
-    componentGroupPresetRow?.querySelectorAll(".preset-card").forEach(card => {
-      const cardSignature = quickToken(card.dataset.options.split(",").join("|"));
-      if (cardSignature === presetSignature) {
-        card.classList.add("selected");
-      }
-    });
   }
 } else {
+  if (componentGroupItemsInput?._componentGroupPresetHandler) {
+    componentGroupItemsInput.removeEventListener(
+      "builder:component-group-preset",
+      componentGroupItemsInput._componentGroupPresetHandler
+    );
+    delete componentGroupItemsInput._componentGroupPresetHandler;
+  }
   componentGroupModeSurveyBtn?.classList.remove("selected");
   componentGroupModeRadioBtn?.classList.remove("selected");
   componentGroupPresetRow?.querySelectorAll(".preset-card")
@@ -2850,7 +3270,7 @@ const showHideLabelToggle =
 const showRequiredToggle =
   supportsRequiredToggle && !hoverMenuToggleTypes.has(type);
 const showActionsToggle =
-  supportsActionsToggle && !hoverMenuToggleTypes.has(type);
+  supportsActionsToggle && (!hoverMenuToggleTypes.has(type) || type === "componentGroup");
 
 if (hideLabelSection) {
   hideLabelSection.style.display = showHideLabelToggle ? "block" : "none";
@@ -2889,14 +3309,37 @@ if (hideLabelToggle) {
     actionsToggleSection.style.display = showActionsToggle ? "block" : "none";
   }
 
-  if (actionsToggle) {
-    actionsToggle.checked =
-      initialActionsEnabled ||    // ← value passed from the caller
-      Boolean(
-        window._currentEditingComponent &&
-        window._currentEditingComponent._actionsDriverKey
-      );
+if (actionsToggle) {
+  actionsToggle.checked =
+    initialActionsEnabled ||    // ← value passed from the caller
+    Boolean(
+      window._currentEditingComponent &&
+      window._currentEditingComponent._actionsDriverKey
+    );
+}
+
+function refreshComponentGroupActionsToggleState() {
+  if (type !== "componentGroup") return;
+
+  const showComponentGroupActions = selectedComponentGroupMode === "radio";
+  const componentGroupTogglesRow = document.getElementById("togglesRow");
+  const componentGroupActionsSection = document.getElementById("actionsToggleSection");
+  const componentGroupActionsToggle = document.getElementById("actionsToggle");
+
+  if (componentGroupActionsSection) {
+    componentGroupActionsSection.style.display = showComponentGroupActions ? "block" : "none";
   }
+
+  if (componentGroupActionsToggle) {
+    componentGroupActionsToggle.disabled = !showComponentGroupActions;
+  }
+
+  if (componentGroupTogglesRow) {
+    componentGroupTogglesRow.style.display = showComponentGroupActions ? "flex" : "none";
+  }
+}
+
+refreshComponentGroupActionsToggleState();
 
 
 
@@ -3477,7 +3920,11 @@ let initializeDisclaimerEditor = () => {};
            
       const finalActionsEnabled =
         supportsActionsToggle && actionsToggle
-          ? actionsToggle.checked
+          ? (
+            type === "componentGroup"
+              ? selectedComponentGroupMode === "radio" && actionsToggle.checked
+              : actionsToggle.checked
+          )
           : false;
 
       let finalSpeedLabels = [];

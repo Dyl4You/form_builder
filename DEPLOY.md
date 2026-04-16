@@ -17,6 +17,9 @@ This branch targets a small public beta with:
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_OAUTH_REDIRECT_URI`
 - Optional:
+  - `CORFIX_API_TOKEN`
+  - `CORFIX_COMPANY_ID`
+  - `CORFIX_API_BASE_URL`
   - `OPENAI_MODEL`
   - `PORT`
   - `ADMIN_EMAILS`

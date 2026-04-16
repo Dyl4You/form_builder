@@ -3,13 +3,12 @@
 const express = require('express');
 const router  = express.Router();
 const _       = require('lodash');            // _.startCase, _.camelCase
-const { getTemplateLibraryService } = require('../utils/templateLibrary');
 const { getPublicAiFeatures } = require('../config/runtimeConfig');
 const { LANG_LABELS, ORIGINAL_VALUE } = require('../utils/templateTranslation');
 
 const DEFAULT_COMPONENT_TYPES = [
-  'disclaimer', 'textarea', 'account', 'choiceList', 'survey', 'datagrid', 'editgrid',
-  'componentGroup', 'quiz', 'file', 'phoneNumber', 'address', 'asset', 'datetime', 'number'
+  'textarea', 'choiceList', 'survey', 'account', 'datetime', 'disclaimer', 'number',
+  'file', 'phoneNumber', 'address', 'asset', 'datagrid', 'editgrid', 'componentGroup', 'quiz'
 ];
 
 const COMPONENT_USAGE_GROUPS = {
@@ -99,7 +98,6 @@ router.get('/design-system', (_req, res) => {
         <p class="ds-copy">Shared tokens, primitives, and examples used across the builder UI.</p>
         <div class="ds-cluster">
           <a class="ds-btn ds-btn-primary" href="/formbuilder">Open Builder</a>
-          <a class="ds-btn ds-btn-secondary" href="/guide" target="_blank" rel="noopener noreferrer">Open Guide</a>
           <a class="ds-btn ds-btn-secondary" href="/stats">Open Stats</a>
         </div>
       </section>
@@ -188,16 +186,15 @@ router.get('/design-system', (_req, res) => {
 // ────────────────────────────────────────────────────────────────────────────
 router.get('/formbuilder', async (req, res) => {
   const aiFeatures = getPublicAiFeatures();
-  const templateLibraryService = getTemplateLibraryService().forWorkspace({
-    workspaceId: req.auth?.workspaceId,
-    workspaceDisplayName: req.auth?.displayName
-  });
   const optionsImageHint = aiFeatures.imageExtraction
     ? 'Drag a screenshot here to extract options.'
     : 'Enter options manually.';
   const surveyImageHint = aiFeatures.imageExtraction
     ? 'Drag a screenshot here to extract questions.'
     : 'Enter survey questions manually.';
+  const componentGroupImageHint = aiFeatures.imageExtraction
+    ? 'Drag a screenshot here to extract survey labels.'
+    : 'Enter survey or radio labels manually.';
   const aiDropOverlayHtml = aiFeatures.fileUpload
     ? '<div id="aiDropOverlay" class="ai-drop-overlay">Drop files to queue for AI Assist</div>'
     : '';
@@ -219,18 +216,48 @@ router.get('/formbuilder', async (req, res) => {
          accept=".pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*"
          hidden />`
     : '';
+  const aiAssistantHtml = aiFeatures.assistant
+    ? `<!-- ——— AI side-chat ———————————————————————————— -->
+${aiDropOverlayHtml}
+
+<aside id="aiChat" class="ai-chat">
+  <header class="ai-chat-topbar" data-ai-drag-handle>
+    <button id="aiClose" type="button" aria-label="Close AI Assist">×</button>
+  </header>
+
+  <section id="aiMsgs" class="ai-chat-history"></section>
+
+  <form id="aiForm" enctype="multipart/form-data">
+    <div class="ai-composer">
+      <div class="ai-input-shell">
+        <textarea id="aiInput"
+                  rows="4"
+                  placeholder="Ask AI to change this form..."
+                  autocomplete="off"></textarea>
+        <div class="ai-composer-actions">
+          ${aiComposerActionsHtml}
+        </div>
+        <button type="submit" class="ai-send-inline" aria-label="Send prompt">
+          <i class="fa-solid fa-arrow-up"></i>
+        </button>
+      </div>
+      ${aiFileInputHtml}
+    </div>
+  </form>
+</aside>
+
+<button id="aiAssistBtn" class="ai-assist-fab" type="button" aria-label="Open AI Assist">
+  <span class="ai-assist-label">AI</span>
+	</button>
+	<!-- ——————————————————————————————————————————————— -->`
+    : '';
+  const aiAssistantScriptHtml = aiFeatures.assistant
+    ? `<script src="/js/aiAssist.js" defer></script>
+	    <script src="/js/aiChat.js" defer></script>`
+    : '';
 
   /* ---------- COMPONENT PALETTE ---------- */
-  let componentTypes = pinPaletteOrder(DEFAULT_COMPONENT_TYPES);
-  try {
-    const usageTotals = await templateLibraryService.getBuilderUsageTotals();
-    const rankedTypes = buildOrderedComponentTypes(usageTotals);
-    if (rankedTypes.length) {
-      componentTypes = rankedTypes;
-    }
-  } catch (err) {
-    console.warn('Unable to rank builder component palette by usage.', err);
-  }
+  const componentTypes = pinPaletteOrder(DEFAULT_COMPONENT_TYPES);
   const componentTypeMeta = {
     disclaimer: {
       label: 'Disclaimer',
@@ -327,17 +354,35 @@ router.get('/formbuilder', async (req, res) => {
         </div>`;
     })
     .join('');
-  const translationLanguageOptionsHtml = Object.entries(LANG_LABELS)
+  const translationLanguageEntries = Object.entries(LANG_LABELS)
     .filter(([code]) => code !== ORIGINAL_VALUE && code !== 'en')
-    .map(([code, label]) => (
-      `<option value="${_.escape(code)}"${code === 'fr' ? ' selected' : ''}>${_.escape(label)}</option>`
-    ))
-    .join('');
+    .map(([code, label]) => [label, code]);
+  const translationLanguageMapJson = _.escape(JSON.stringify(Object.fromEntries(translationLanguageEntries)));
   const initialFieldsetCardsHtml = `
-    <button type="button" class="fieldset-card selected" data-key="root" data-tooltip="Root (Grouping)" aria-label="Root (Grouping)" aria-pressed="true">
+    <button type="button" class="fieldset-card selected" data-key="root" aria-label="Root (Grouping)" aria-pressed="true">
       <span class="fieldset-card__label">Root (Grouping)</span>
     </button>`;
   const initialComponentListHtml = `<div class="component-empty-dropzone" aria-hidden="true"></div>`;
+  const saveTemplateTranslateActionHtml = aiFeatures.translation
+    ? `
+                    <div class="save-template-translate-inline">
+                      <label for="saveTemplateTranslationLanguageSelect" class="modal-section-title">Translation Language</label>
+                      <input
+                        id="saveTemplateTranslationLanguageSelect"
+                        type="text"
+                        list="saveTemplateTranslationLanguageList"
+                        maxlength="120"
+                        placeholder="No Translation"
+                        autocomplete="off"
+                        spellcheck="false"
+                        data-language-map="${translationLanguageMapJson}">
+                      <datalist id="saveTemplateTranslationLanguageList">
+                        ${translationLanguageEntries
+                          .map(([label, code]) => `<option value="${_.escape(label)}" data-code="${_.escape(code)}"></option>`)
+                          .join('')}
+                      </datalist>
+                    </div>`
+    : '';
 
   /* ---------- FULL HTML ---------- */
   const html = /* html */`
@@ -381,33 +426,24 @@ router.get('/formbuilder', async (req, res) => {
   <body class="builder-page">
     <div id="sessionTimer" class="session-timer">
       <div id="sessionTimerSummary" class="session-timer-summary">
-        <div class="session-timer-display-shell">
-          <div class="session-timer-display-trigger">
-            <span class="session-timer-display-copy">
-              <span class="session-timer-display-label">Current Session</span>
-              <span id="sessionTimerDisplay">00:00</span>
-            </span>
-            <button
-              id="sessionTimerReset"
-              class="session-timer-reset-popover"
-              type="button"
-              data-reset-scope="builder"
-            >
-              Reset
-            </button>
-          </div>
+        <div class="session-timer-display-trigger">
+          <span class="session-timer-display-copy">
+            <span class="session-timer-display-label">Current Session</span>
+            <span id="sessionTimerDisplay">00:00</span>
+          </span>
+          <button
+            id="sessionTimerReset"
+            class="session-timer-reset-popover"
+            type="button"
+            data-reset-scope="builder"
+          >
+            Reset
+          </button>
         </div>
         <div class="session-timer-actions">
           <a class="session-timer-summary-link" href="/stats">
-            <span class="session-timer-icon"><i class="fa-regular fa-clock"></i></span>
             <span class="session-timer-summary-copy">
               <span class="session-timer-label">View Stats</span>
-            </span>
-          </a>
-          <a class="session-timer-summary-link" href="/guide" target="_blank" rel="noopener noreferrer">
-            <span class="session-timer-icon"><i class="fa-regular fa-circle-question"></i></span>
-            <span class="session-timer-summary-copy">
-              <span class="session-timer-label">Open Guide</span>
             </span>
           </a>
         </div>
@@ -519,7 +555,49 @@ router.get('/formbuilder', async (req, res) => {
         <div id="jsonPreviewContainer" class="builder-json-preview">
           <pre id="formPreview"></pre>
           <div class="builder-json-actions">
-            <button id="saveTemplateBtn">Save Template</button>
+            <div class="save-template-launcher">
+              <div id="saveTemplateModal" class="save-template-flyout" hidden aria-hidden="true">
+                <div class="save-template-modal-content">
+                  <div class="modal-header">
+                    <span class="close-btn" onclick="closeSaveTemplateModal()" aria-label="Close local publish panel">×</span>
+                  </div>
+                  <div class="modal-body save-template-modal-body">
+                    <section class="save-template-section">
+                      <p class="modal-section-title">Template Name</p>
+                      <input
+                        id="saveTemplateNameInput"
+                        type="text"
+                        maxlength="120"
+                        placeholder="Enter template name"
+                        autocomplete="off"
+                        spellcheck="false">
+                    </section>
+
+                    <section class="save-template-section">
+                      <p class="modal-section-title">Corfix Group Name</p>
+                      <div class="save-template-inline-panel">
+                        <input
+                          id="saveTemplateGroupPickerInput"
+                          type="text"
+                          list="saveTemplateGroupPickerList"
+                          maxlength="120"
+                          placeholder="Enter group name"
+                          autocomplete="off"
+                          spellcheck="false">
+                        <datalist id="saveTemplateGroupPickerList"></datalist>
+                        <p id="saveTemplateGroupsStatus" class="save-template-groups-status" aria-live="polite"></p>
+                      </div>
+                    </section>
+
+                    <section class="save-template-section">
+                      ${saveTemplateTranslateActionHtml}
+                    </section>
+
+                  </div>
+                </div>
+              </div>
+              <button id="saveTemplateBtn" type="button">Publish</button>
+            </div>
             <button id="copyJsonBtn">Copy JSON</button>
             <button id="importJsonBtn">Import JSON</button>
           </div>
@@ -527,46 +605,6 @@ router.get('/formbuilder', async (req, res) => {
 
         <!-- ===================== DARK OVERLAY ===================== -->
         <div id="overlay" class="overlay"></div>
-
-        <!-- ===================== SAVE TEMPLATE MODAL ============== -->
-        <div id="saveTemplateModal" class="modal" aria-hidden="true">
-          <div class="modal-content save-template-modal-content">
-            <div class="modal-header">
-              <div class="save-template-modal-heading">
-                <h3 id="saveTemplateModalTitle">Save Template</h3>
-                <p id="saveTemplateModalCopy" class="save-template-modal-copy">
-                  Name this template before saving it to your library.
-                </p>
-              </div>
-              <span class="close-btn" onclick="closeSaveTemplateModal()" aria-label="Close save template modal">×</span>
-            </div>
-            <div class="modal-body save-template-modal-body">
-              <label for="saveTemplateNameInput" class="modal-section-title">Template Name</label>
-              <input
-                id="saveTemplateNameInput"
-                type="text"
-                maxlength="120"
-                placeholder="Enter template name">
-              <div class="save-template-translate-panel">
-                <p class="modal-section-title">Save & Translate Options</p>
-                <div class="save-template-translate-field">
-                  <label for="saveTemplateTranslationLanguageSelect">Target Language</label>
-                  <select id="saveTemplateTranslationLanguageSelect">
-                    ${translationLanguageOptionsHtml}
-                  </select>
-                </div>
-                <p class="save-template-translate-help">
-                  Used only when you choose Save &amp; Translate. This copies the bilingual wrapper version with the original form first and the translated form second.
-                </p>
-              </div>
-            </div>
-            <div class="modal-buttons">
-              <button id="saveTemplateCancelBtn" type="button" onclick="closeSaveTemplateModal()">Cancel</button>
-              <button id="saveTemplateTranslateBtn" type="button">Save &amp; Translate</button>
-              <button id="saveTemplateConfirmBtn" type="button">Save Template</button>
-            </div>
-          </div>
-        </div>
 
         <!-- ===================== IMPORT-JSON MODAL ================= -->
         <div id="importJsonModal" class="modal">
@@ -684,9 +722,12 @@ router.get('/formbuilder', async (req, res) => {
                 </div>
 
                 <label id="componentGroupItemsLabel" style="display:block;margin-top:15px;">Survey Labels</label>
-                <textarea id="componentGroupItemsInputUnified"
-                          style="width:100%;height:120px;"
-                          placeholder="One label per line"></textarea>
+                <ol id="componentGroupItemsInputUnified"
+                    class="line-list-editor"
+                    aria-label="Field group labels list"></ol>
+                <div id="componentGroupItemsImageStatus" class="option-image-status" aria-live="polite">
+                  ${componentGroupImageHint}
+                </div>
 
                 <p class="modal-help-text">Response options use the preset below.</p>
 
@@ -1099,39 +1140,7 @@ router.get('/formbuilder', async (req, res) => {
 
 	    </main><!-- /.wrapper -->
 
-<!-- ——— AI side-chat ———————————————————————————— -->
-${aiDropOverlayHtml}
-
-<aside id="aiChat" class="ai-chat">
-  <header class="ai-chat-topbar" data-ai-drag-handle>
-    <button id="aiClose" type="button" aria-label="Close AI Assist">×</button>
-  </header>
-
-  <section id="aiMsgs" class="ai-chat-history"></section>
-
-  <form id="aiForm" enctype="multipart/form-data">
-    <div class="ai-composer">
-      <div class="ai-input-shell">
-        <textarea id="aiInput"
-                  rows="4"
-                  placeholder="Ask AI to change this form..."
-                  autocomplete="off"></textarea>
-        <div class="ai-composer-actions">
-          ${aiComposerActionsHtml}
-        </div>
-        <button type="submit" class="ai-send-inline" aria-label="Send prompt">
-          <i class="fa-solid fa-arrow-up"></i>
-        </button>
-      </div>
-      ${aiFileInputHtml}
-    </div>
-  </form>
-</aside>
-
-<button id="aiAssistBtn" class="ai-assist-fab" type="button" aria-label="Open AI Assist">
-  <span class="ai-assist-label">AI</span>
-	</button>
-	<!-- ——————————————————————————————————————————————— -->
+${aiAssistantHtml}
 
 	    <!-- ===================== SCRIPTS ===================== -->
 	    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js" defer></script>
@@ -1146,8 +1155,7 @@ ${aiDropOverlayHtml}
 	      window.__builderAiFeatures = ${JSON.stringify(aiFeatures)};
 	    </script>
 	    <script src="/js/mainFormBuilder.js" defer></script>
-	    <script src="/js/aiAssist.js" defer></script>
-	    <script src="/js/aiChat.js" defer></script> 
+	    ${aiAssistantScriptHtml}
 	    
 	  </body>
 	  </html>

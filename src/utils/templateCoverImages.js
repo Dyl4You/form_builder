@@ -1,4 +1,5 @@
 const OpenAI = require('openai').OpenAI;
+const { isFreeBuilderMode } = require('../config/runtimeConfig');
 let sharp = null;
 let Tesseract = null;
 try {
@@ -629,6 +630,7 @@ function createTemplateCoverGenerator(options = {}) {
   const enabled = options.enabled == null
     ? Boolean(apiKey)
       && hasTextVerificationSupport
+      && !isFreeBuilderMode(process.env)
       && !isExplicitlyDisabled(process.env.OPENAI_TEMPLATE_COVERS)
     : Boolean(options.enabled);
 

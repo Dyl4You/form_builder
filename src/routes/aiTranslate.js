@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const { OpenAI } = require('openai');
+const { getPublicAiFeatures } = require('../config/runtimeConfig');
 const { createUserQuotaMiddleware } = require('../security/requestSecurity');
 
 const {
@@ -75,6 +76,10 @@ async function translateBatchWithOpenAI(strings = [], targetLanguage = 'fr') {
 }
 
 router.post('/api/ai/translate-template', createUserQuotaMiddleware('translate-template'), async (req, res) => {
+  if (!getPublicAiFeatures().translation) {
+    return res.status(410).json({ error: 'Template translation is disabled for this deployment.' });
+  }
+
   const payload = req.body || {};
   const definition = payload.definition;
   const targetLanguage = String(payload.targetLanguage || '').trim().toLowerCase() || 'fr';

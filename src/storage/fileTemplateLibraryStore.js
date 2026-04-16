@@ -842,7 +842,7 @@ class FileTemplateLibraryStore {
       achievementsUnlocked: cloneJson(workspace.profile.achievementsUnlocked || []),
       handcraftedChain: Math.max(0, Math.floor(toFiniteNumber(workspace.profile.handcraftedChain))),
       neglectedRevivalCount: Math.max(0, Math.floor(toFiniteNumber(workspace.profile.neglectedRevivalCount))),
-      topComponents: await this.getTopComponents(workspaceId, 5),
+      topComponents: await this.getTopComponents(workspaceId),
       sessionTimeStats: {
         trackedCount: trackedVersions.length,
         longestMs,
@@ -865,7 +865,7 @@ class FileTemplateLibraryStore {
     };
   }
 
-  async getTopComponents(workspaceId = this.workspaceId, limit = 5) {
+  async getTopComponents(workspaceId = this.workspaceId, limit) {
     await this.ensureReady();
     const workspace = this.#getWorkspace(workspaceId);
     return Object.entries(workspace.componentTotals || {})
@@ -878,7 +878,7 @@ class FileTemplateLibraryStore {
         if (b.count !== a.count) return b.count - a.count;
         return a.type.localeCompare(b.type);
       })
-      .slice(0, limit);
+      .slice(0, limit == null ? undefined : limit);
   }
 
   async getLeastUsedTypes(workspaceId = this.workspaceId, limit = 3) {

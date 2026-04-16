@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const router = require('express').Router();
 const { OpenAI } = require('openai');
+const { getPublicAiFeatures } = require('../config/runtimeConfig');
 
 const {
   ALLOWED_TYPES,
@@ -16,7 +17,9 @@ const {
 } = require('../utils/aiBlueprints');
 const { createUserQuotaMiddleware } = require('../security/requestSecurity');
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 const MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
 
 const SYSTEM_PROMPT = `
@@ -68,6 +71,14 @@ ${BLUEPRINT_GUIDANCE}
 `.trim();
 
 router.post('/api/ai/generate', createUserQuotaMiddleware('generate'), async (req, res) => {
+  if (!getPublicAiFeatures().assistant) {
+    return res.status(410).json({ error: 'AI Assist is disabled for this deployment.' });
+  }
+
+  if (!openai) {
+    return res.status(503).json({ error: 'OPENAI_API_KEY is required for AI Assist.' });
+  }
+
   const { prompt, current } = req.body;
   if (!prompt) return res.status(400).json({ error: 'prompt required' });
   const existingJson = current && current.components ? current : { components: [] };
