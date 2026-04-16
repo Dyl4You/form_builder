@@ -1,13 +1,33 @@
+image: node:20-bookworm
 
-image: nikolajdl/gcloud-sdk-nodejs
-build:
-  stage: build
+stages:
+  - test
+  - deploy
+
+test:
+  stage: test
   script:
     - npm ci
-    - echo $SERVICE_ACCOUNT > /tmp/$CI_PIPELINE_ID.json
-    - gcloud auth activate-service-account --key-file /tmp/$CI_PIPELINE_ID.json
-    - gcloud --quiet --project $PROJECT_ID app deploy app.yaml
-  tags:
-    - corfix
-after_script:
-  - rm /tmp/$CI_PIPELINE_ID.json
+    - npm test
+
+deploy_beta:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+  before_script:
+    - apt-get update -y
+    - apt-get install -y openssh-client rsync
+    - eval "$(ssh-agent -s)"
+    - chmod 400 "$SSH_PRIVATE_KEY"
+    - ssh-add "$SSH_PRIVATE_KEY"
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - cp "$SSH_KNOWN_HOSTS" ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - rsync -az --delete --exclude '.git' --exclude 'node_modules' --exclude '.env' ./ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/current/"
+    - ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd $DEPLOY_PATH/current && npm ci --omit=dev && sudo systemctl restart form-builder && sudo systemctl status form-builder --no-pager"
+  environment:
+    name: beta
+    url: https://forms.example.com

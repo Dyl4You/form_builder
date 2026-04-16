@@ -14,13 +14,27 @@ function hasGoogleAuthConfig(env = process.env) {
   );
 }
 
-function parseAdminEmails(env = process.env) {
+function parseEmailSet(rawValue = '') {
   return new Set(
-    trimString(env.ADMIN_EMAILS)
+    trimString(rawValue)
       .split(',')
       .map((value) => value.trim().toLowerCase())
       .filter(Boolean)
   );
+}
+
+function parseAdminEmails(env = process.env) {
+  return parseEmailSet(env.ADMIN_EMAILS);
+}
+
+function parseAllowedEmails(env = process.env) {
+  return parseEmailSet(env.ALLOWED_EMAILS);
+}
+
+function isEmailAllowed(email = '', env = process.env) {
+  const allowedEmails = parseAllowedEmails(env);
+  if (!allowedEmails.size) return true;
+  return allowedEmails.has(trimString(email).toLowerCase());
 }
 
 function resolveUserRole(email = '', env = process.env) {
@@ -55,11 +69,24 @@ function isFeatureEnabled(value, defaultValue = true) {
   return defaultValue;
 }
 
+function isFreeBuilderMode(env = process.env) {
+  return isFeatureEnabled(env.FREE_BUILDER_MODE, false);
+}
+
 function getPublicAiFeatures(env = process.env) {
+  const freeMode = isFreeBuilderMode(env);
+  const assistant = isFeatureEnabled(env.ENABLE_AI_ASSIST, !freeMode);
+  const imageExtraction = isFeatureEnabled(env.ENABLE_IMAGE_EXTRACTION, true);
+
   return {
-    fileUpload: isFeatureEnabled(env.ENABLE_FILE_UPLOADS, true),
-    dictation: isFeatureEnabled(env.ENABLE_AI_DICTATION, true),
-    imageExtraction: isFeatureEnabled(env.ENABLE_IMAGE_EXTRACTION, true)
+    assistant,
+    fileUpload: assistant && isFeatureEnabled(env.ENABLE_FILE_UPLOADS, !freeMode),
+    dictation: assistant && isFeatureEnabled(env.ENABLE_AI_DICTATION, !freeMode),
+    imageExtraction,
+    imageExtractionAiRefinement: imageExtraction
+      && !freeMode
+      && isFeatureEnabled(env.ENABLE_IMAGE_EXTRACTION_AI_REFINEMENT, false),
+    translation: isFeatureEnabled(env.ENABLE_AI_TRANSLATION, !freeMode)
   };
 }
 
@@ -104,8 +131,11 @@ module.exports = {
   getDevAuthProfile,
   getPublicAiFeatures,
   hasGoogleAuthConfig,
+  isEmailAllowed,
+  isFreeBuilderMode,
   isProductionEnvironment,
   parseAdminEmails,
+  parseAllowedEmails,
   resolveUserRole,
   trimString,
   validateRuntimeConfiguration

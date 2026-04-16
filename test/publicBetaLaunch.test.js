@@ -67,14 +67,7 @@ async function performMockLogin(baseUrl, profile) {
       Cookie: oauthFlowCookie
     }
   });
-
-  assert.equal(callback.status, 302);
-  assert.equal(callback.headers.get('location'), '/formbuilder');
-
-  const sessionCookie = findCookieValue(callback, 'fb_session');
-  assert.ok(sessionCookie);
-
-  return sessionCookie;
+  return callback;
 }
 
 test('public beta auth and tenancy flows', { concurrency: false }, async (t) => {
@@ -84,11 +77,15 @@ test('public beta auth and tenancy flows', { concurrency: false }, async (t) => 
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     GOOGLE_OAUTH_REDIRECT_URI: process.env.GOOGLE_OAUTH_REDIRECT_URI,
     GOOGLE_OAUTH_MOCK_PROFILE_JSON: process.env.GOOGLE_OAUTH_MOCK_PROFILE_JSON,
+    ALLOWED_EMAILS: process.env.ALLOWED_EMAILS,
     APP_SESSION_SECRET: process.env.APP_SESSION_SECRET,
     TEMPLATE_LIBRARY_ROOT: process.env.TEMPLATE_LIBRARY_ROOT,
     TEMPLATE_BLOB_ROOT: process.env.TEMPLATE_BLOB_ROOT,
     DATABASE_URL: process.env.DATABASE_URL,
-    GCS_TEMPLATE_BUCKET: process.env.GCS_TEMPLATE_BUCKET
+    GCS_TEMPLATE_BUCKET: process.env.GCS_TEMPLATE_BUCKET,
+    CORFIX_API_TOKEN: process.env.CORFIX_API_TOKEN,
+    CORFIX_COMPANY_ID: process.env.CORFIX_COMPANY_ID,
+    CORFIX_API_BASE_URL: process.env.CORFIX_API_BASE_URL
   };
 
   const rootDir = await makeTempDir('public-beta-launch');
@@ -108,21 +105,30 @@ test('public beta auth and tenancy flows', { concurrency: false }, async (t) => 
   delete process.env.NODE_ENV;
   delete process.env.DATABASE_URL;
   delete process.env.GCS_TEMPLATE_BUCKET;
+  delete process.env.CORFIX_API_TOKEN;
+  delete process.env.CORFIX_COMPANY_ID;
+  delete process.env.CORFIX_API_BASE_URL;
   process.env.GOOGLE_CLIENT_ID = 'public-beta-client-id';
   process.env.GOOGLE_CLIENT_SECRET = 'public-beta-client-secret';
   process.env.GOOGLE_OAUTH_REDIRECT_URI = 'http://localhost/auth/google/callback';
+  process.env.ALLOWED_EMAILS = 'alpha@example.com';
   process.env.APP_SESSION_SECRET = 'public-beta-session-secret';
   process.env.TEMPLATE_LIBRARY_ROOT = path.join(rootDir, 'library');
   process.env.TEMPLATE_BLOB_ROOT = path.join(rootDir, 'blobs');
   resetTemplateLibraryService();
 
   await withServer(async (baseUrl) => {
-    const cookieA = await performMockLogin(baseUrl, {
+    const callbackA = await performMockLogin(baseUrl, {
       sub: 'alpha-user',
       email: 'alpha@example.com',
       email_verified: true,
       name: 'Alpha User'
     });
+    assert.equal(callbackA.status, 302);
+    assert.equal(callbackA.headers.get('location'), '/formbuilder');
+
+    const cookieA = findCookieValue(callbackA, 'fb_session');
+    assert.ok(cookieA);
 
     const overviewA = await fetch(`${baseUrl}/api/stats/overview`, {
       headers: {
@@ -164,33 +170,23 @@ test('public beta auth and tenancy flows', { concurrency: false }, async (t) => 
     assert.equal(saved.status, 201);
     assert.ok(savedPayload.templateId);
 
-    const cookieB = await performMockLogin(baseUrl, {
+    const callbackB = await performMockLogin(baseUrl, {
       sub: 'bravo-user',
       email: 'bravo@example.com',
       email_verified: true,
       name: 'Bravo User'
     });
+    assert.equal(callbackB.status, 403);
+    assert.equal(findCookieValue(callbackB, 'fb_session'), '');
 
-    const listB = await fetch(`${baseUrl}/api/templates`, {
-      headers: {
-        Cookie: cookieB
-      }
-    });
-    const listPayloadB = await listB.json();
+    const deniedBody = await callbackB.text();
+    assert.match(deniedBody, /not allowed to access this beta/i);
 
-    assert.equal(listB.status, 200);
-    assert.equal(Array.isArray(listPayloadB.items), true);
-    assert.equal(listPayloadB.items.length, 0);
+    const anonymousList = await fetch(`${baseUrl}/api/templates`);
+    const anonymousListPayload = await anonymousList.json();
 
-    const fetchByIdB = await fetch(`${baseUrl}/api/templates/${encodeURIComponent(savedPayload.templateId)}`, {
-      headers: {
-        Cookie: cookieB
-      }
-    });
-    const fetchByIdPayloadB = await fetchByIdB.json();
-
-    assert.equal(fetchByIdB.status, 404);
-    assert.equal(fetchByIdPayloadB.error, 'Saved template not found.');
+    assert.equal(anonymousList.status, 401);
+    assert.equal(anonymousListPayload.error, 'Authentication required.');
 
     const fetchByIdA = await fetch(`${baseUrl}/api/templates/${encodeURIComponent(savedPayload.templateId)}`, {
       headers: {
@@ -241,6 +237,82 @@ test('disabled ingestion routes return 410 in the public beta', { concurrency: f
     assert.equal(upload.status, 410);
     assert.equal(optionsFromImage.status, 410);
     assert.equal(dictate.status, 410);
+  });
+});
+
+test('free builder mode disables paid AI surfaces but keeps local image extraction available', { concurrency: false }, async (t) => {
+  const originalEnv = {
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    GOOGLE_OAUTH_REDIRECT_URI: process.env.GOOGLE_OAUTH_REDIRECT_URI,
+    FREE_BUILDER_MODE: process.env.FREE_BUILDER_MODE,
+    ENABLE_IMAGE_EXTRACTION: process.env.ENABLE_IMAGE_EXTRACTION,
+    ENABLE_AI_ASSIST: process.env.ENABLE_AI_ASSIST,
+    ENABLE_AI_TRANSLATION: process.env.ENABLE_AI_TRANSLATION,
+    ENABLE_FILE_UPLOADS: process.env.ENABLE_FILE_UPLOADS,
+    ENABLE_AI_DICTATION: process.env.ENABLE_AI_DICTATION
+  };
+
+  t.after(() => {
+    Object.entries(originalEnv).forEach(([key, value]) => {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    });
+    resetTemplateLibraryService();
+  });
+
+  delete process.env.GOOGLE_CLIENT_ID;
+  delete process.env.GOOGLE_CLIENT_SECRET;
+  delete process.env.GOOGLE_OAUTH_REDIRECT_URI;
+  process.env.FREE_BUILDER_MODE = '1';
+  process.env.ENABLE_IMAGE_EXTRACTION = '1';
+  delete process.env.ENABLE_AI_ASSIST;
+  delete process.env.ENABLE_AI_TRANSLATION;
+  delete process.env.ENABLE_FILE_UPLOADS;
+  delete process.env.ENABLE_AI_DICTATION;
+  resetTemplateLibraryService();
+
+  await withServer(async (baseUrl) => {
+    const builderPage = await fetch(`${baseUrl}/formbuilder`);
+    const builderHtml = await builderPage.text();
+
+    assert.equal(builderPage.status, 200);
+    assert.doesNotMatch(builderHtml, /id="saveTemplateTranslateBtn"/);
+    assert.doesNotMatch(builderHtml, /id="aiAssistBtn"/);
+    assert.doesNotMatch(builderHtml, /\/js\/aiChat\.js/);
+
+    const [generate, patch, translate, optionsFromImage] = await Promise.all([
+      fetch(`${baseUrl}/api/ai/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ prompt: 'add a field' })
+      }),
+      fetch(`${baseUrl}/api/ai/patch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ prompt: 'rename this', form: { components: [] }, target: { key: 'root', isRoot: true } })
+      }),
+      fetch(`${baseUrl}/api/ai/translate-template`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ definition: { components: [] }, targetLanguage: 'fr' })
+      }),
+      fetch(`${baseUrl}/api/ai/options-from-image`, { method: 'POST' })
+    ]);
+
+    assert.equal(generate.status, 410);
+    assert.equal(patch.status, 410);
+    assert.equal(translate.status, 410);
+    assert.equal(optionsFromImage.status, 400);
   });
 });
 

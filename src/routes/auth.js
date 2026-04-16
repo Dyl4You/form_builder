@@ -1,6 +1,6 @@
 const express = require('express');
 
-const { trimString } = require('../config/runtimeConfig');
+const { isEmailAllowed, trimString } = require('../config/runtimeConfig');
 const {
   beginGoogleAuthFlow,
   buildSessionPayloadFromGoogleProfile,
@@ -253,6 +253,12 @@ router.get('/auth/google/callback', async (req, res) => {
 
   try {
     const profile = await loadGoogleProfileFromCode(code);
+    const email = trimString(profile?.email).toLowerCase();
+    if (!isEmailAllowed(email)) {
+      const error = new Error('This account is not allowed to access this beta.');
+      error.statusCode = 403;
+      throw error;
+    }
     const sessionPayload = buildSessionPayloadFromGoogleProfile(profile);
     const service = getTemplateLibraryService().forWorkspace({
       workspaceId: sessionPayload.workspaceId,
@@ -264,7 +270,7 @@ router.get('/auth/google/callback', async (req, res) => {
     return res.redirect(flow.nextPath);
   } catch (error) {
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(500).send(renderLoginPage({
+    return res.status(error?.statusCode || 500).send(renderLoginPage({
       error: error?.message || 'Google sign-in failed.',
       nextPath: flow.nextPath
     }));
