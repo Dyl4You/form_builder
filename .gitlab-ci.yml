@@ -14,7 +14,7 @@ deploy_beta:
   stage: deploy
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
-      when: manual
+      when: on_success
   before_script:
     - apt-get update -y
     - apt-get install -y openssh-client rsync
